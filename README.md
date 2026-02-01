@@ -1,4 +1,4 @@
-<div align="center">
+<div align="center"> 
 
 # LangGraph Financial Swarm
 ### A Hierarchical Multi-Agent Framework for Structure-Aware Financial Analysis
