@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "langgraph-financial-swarm"
+version = "0.1.0"
+description = "A structure-aware multi-agent financial analysis swarm."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+authors = [
+  {name = "Your Name", email = "your.email@example.com"},
+]
+dependencies = [
+    "langgraph>=0.0.26",
+    "langchain>=0.2.14",
+    "matplotlib>=3.9.0",
+    "langchain_openai>=0.1.7",
+    "pydantic>=2.8.2",
+    "jupyter>=1.0.0",
+    "llama-index>=0.10.55",
+    "llama-parse>=0.4.4",
+    "python-dotenv>=1.0.1",
+    "llama-index-embeddings-huggingface>=0.2.2",
+    "llama-index-llms-ollama>=0.1.5",
+    "sentence-transformers>=3.0.1",
+    "langchain-community>=0.2.12",
+    "langchain-ollama>=0.1.3",
+    "seaborn>=0.13.2"
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
