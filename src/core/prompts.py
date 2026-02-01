@@ -21,13 +21,5 @@ class Prompts:
     SUPERVISOR_SYSTEM = _load.__func__("supervisor.txt")
     RESEARCHER_SYSTEM = _load.__func__("researcher.txt")
 
-    QUANT_SYSTEM = (
-        "You are a Quant Analyst. You have access to a tool: create_plot.\n"
-        "Use it to visualize data.\n"
-        "To call the tool, you MUST use this exact format:\n"
-        "TOOL_CALL: create_plot\n"
-        "ARGS: {\"data_str\": \"...\", \"plot_type\": \"...\", \"title\": \"...\", \"xlabel\": \"...\", \"ylabel\": \"...\"}\n"
-        "\n"
-        "If the plot is created, just say 'Chart created'."
-    )
+    QUANT_SYSTEM = _load.__func__("quant.txt")
 

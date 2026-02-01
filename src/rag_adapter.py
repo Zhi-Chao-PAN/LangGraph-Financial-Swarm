@@ -1,4 +1,4 @@
-# src/rag_adapter.py (Updated with Citations & Robustness)
+# src/rag_adapter.py
 import os
 import asyncio
 from typing import Dict, Any, Optional
@@ -12,73 +12,72 @@ import diskcache as dc
 
 class RAGAdapter:
     """
-    Adapter for LlamaIndex RAG with persistent caching.
+    Adapter for LlamaIndex RAG with persistent caching and non-blocking initialization.
     """
     def __init__(self) -> None:
-        # Cache setup
         self.cache = dc.Cache(settings.DATA_DIR / "rag_cache")
+        # 核心修改1: 初始化时不加载模型，移除副作用
+        self.index = None 
+        self.query_engine = None
+        self._lock = asyncio.Lock() # 防止并发初始化竞争
+
+    def _initialize_sync(self):
+        """同步的、重型的初始化逻辑 (将在线程池中运行)"""
+        log_agent_action("RAGAdapter", "Initialization", "Configuring Models & Loading Index...")
         
-        # Configure LlamaIndex with local models (Validation)
+        # 核心修改2: 配置模型移到这里 (Lazy Config)
         Settings.embed_model = HuggingFaceEmbedding(model_name=settings.EMBEDDING_MODEL)
         Settings.llm = Ollama(model=settings.LLM_MODEL, base_url=settings.LLM_BASE_URL)
         
-        self.index = None # Lazy load
-        self.query_engine = None
-
-    def _ensure_initialized(self):
-        if self.index is None:
-             self.index = self._load_data()
-             self.query_engine = self.index.as_query_engine(similarity_top_k=3)
-
-    def _load_data(self) -> VectorStoreIndex:
+        # 加载数据
         data_path = settings.RAG_DATA_PATH
-        log_agent_action("RAGAdapter", "Initialization", "Loading/Parsing Index...")
         if not os.path.exists(data_path):
-             raise FileNotFoundError(f"RAG data not found at {data_path}. Please run the ingestion pipeline first.")
+             raise FileNotFoundError(f"RAG data not found at {data_path}")
         
         documents = SimpleDirectoryReader(input_files=[data_path]).load_data()
         return VectorStoreIndex.from_documents(documents)
 
-    @retry_with_backoff(retries=3)
-    def ensure_initialized(self):
-        """Ensures the index and query engine are loaded. (Now handled in __init__)"""
-        # This method is largely vestigial now as index and query_engine are initialized in __init__
-        # but kept for compatibility if external calls still rely on it.
-        if self.index is None:
-            self.index = self._load_data()
+    async def _ensure_initialized_async(self):
+        """异步封装初始化逻辑"""
+        if self.query_engine is not None:
+            return
+
+        async with self._lock: # 确保只有一个协程执行初始化
+            if self.query_engine is not None: # Double-check locking
+                return
+            
+            loop = asyncio.get_running_loop()
+            # 核心修改3: 将重型初始化扔到线程池执行，彻底释放 Event Loop
+            self.index = await loop.run_in_executor(None, self._initialize_sync)
             self.query_engine = self.index.as_query_engine(similarity_top_k=3)
 
     async def aquery(self, question: str) -> Dict[str, Any]:
-        """
-        Async query processing with Non-blocking Caching and Retry logic.
-        """
         loop = asyncio.get_running_loop()
         
-        # 1. Check Cache (Non-blocking)
-        # DiskCache operations involve IO, so we offload to executor to prevent blocking the event loop
+        # 1. Cache Check (Non-blocking)
         cached_result = await loop.run_in_executor(None, lambda: self.cache.get(question))
         if cached_result:
             log_agent_action("RAGAdapter", "Query (Cache Hit)", f"Q: {question}")
-            return cached_result # type: ignore
+            return cached_result
+
+        # 2. Lazy Load (Non-blocking!)
+        await self._ensure_initialized_async()
 
         start_time = time.time()
-        
+
+        # 3. Query
         @retry_with_backoff(retries=3)
         async def _execute_query():
-            # Ensure initialization is verified
-            if self.query_engine is None:
-                self._ensure_initialized()
-            return await self.query_engine.aquery(question) 
+            return await self.query_engine.aquery(question)
 
         try:
             response = await _execute_query()
             
-            # Extract citations
+            # Extract citations logic
             sources = []
             if hasattr(response, "source_nodes"):
                 for node in response.source_nodes:
                     sources.append(f"Content: {node.node.get_content()[:100]}...")
-            
             citation_str = "\n".join([f"[Source {i+1}]: {s}" for i, s in enumerate(sources)])
 
             result = {
@@ -87,23 +86,16 @@ class RAGAdapter:
                 "latency_s": time.time() - start_time
             }
             
-            log_agent_action("RAGAdapter", "Query", f"Q: {question} | A: {str(response)[:100]}...")
+            log_agent_action("RAGAdapter", "Query", f"Q: {question}")
             
-            # 2. Set Cache (Non-blocking)
+            # Set Cache
             await loop.run_in_executor(None, lambda: self.cache.set(question, result))
             return result
             
         except Exception as e:
-            # Fallback logic for robustness
-            msg = f"RAG Engine Connection Failed: {e}. Please check your local Ollama/LlamaIndex setup."
-            print(msg) # Keeping print here for immediate console visibility, logger used below
+            msg = f"RAG Engine Connection Failed: {e}"
             log_agent_action("RAGAdapter", "Error", msg)
-            return {
-                "model_answer": f"Error: {msg}",
-                "source_nodes": [],
-                "latency_s": 0.0
-            }
+            return {"model_answer": f"Error: {msg}", "source_nodes": [], "latency_s": 0.0}
 
-
-# Singleton instance for the tool to use
+# Singleton instance
 adapter = RAGAdapter()
