@@ -166,15 +166,6 @@ LangGraph-Financial-Swarm/
 └── README.md            # You are here
 ```
 
-## � Experimental Results
-
-| Metric | Baseline (Standard RAG) | Proposed (Structure-Aware) | Improvement |
-|:---|:---:|:---:|:---:|
-| **Table Extraction Accuracy** | 62% | **94%** | +32% |
-| **Numerical Reasoning** | 45% | **81%** | +36% |
-| **Privacy Compliance** | Low (Cloud) | **High (Local)** | N/A |
-
-
 ## 🔧 Troubleshooting
 
 | Issue | Solution |
