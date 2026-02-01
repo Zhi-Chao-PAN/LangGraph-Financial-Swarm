@@ -55,29 +55,36 @@ def create_plot(data_str: str, plot_type: str, title: str, xlabel: str, ylabel: 
         df.to_csv(csv_path, index=False)
 
         # 2. Generate Plot
-        plt.figure(figsize=(10, 6))
+        # 2. Generate Plot (Object-Oriented Approach)
+        from matplotlib.figure import Figure
+        from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+        
+        fig = Figure(figsize=(10, 6), dpi=300)
+        ax = fig.add_subplot(111)
         
         if plot_type == "bar":
-            ax = sns.barplot(x=df.columns[0], y=df.columns[1], data=df, palette="viridis")
-            if plot_type == 'bar':
-                sns.barplot(data=df, x='label', y='value', hue='label', palette='viridis', legend=False)
+            sns.barplot(x=df.columns[0], y=df.columns[1], data=df, palette="viridis", ax=ax)
+            if plot_type == 'bar' and 'label' in df.columns: # Redundant check from original logical, cleaning but keeping logic structure
+                 pass # simplified
         elif plot_type == 'line':
-            sns.lineplot(data=df, x='year', y='value', marker='o')
+            sns.lineplot(data=df, x='year', y='value', marker='o', ax=ax)
         elif plot_type == 'scatter':
-            sns.scatterplot(data=df, x='year', y='value', s=100)
+            sns.scatterplot(data=df, x='year', y='value', s=100, ax=ax)
         elif plot_type == 'hist':
-            sns.histplot(data=df, x='value', kde=True)
+            sns.histplot(data=df, x='value', kde=True, ax=ax)
         else:
-            sns.barplot(data=df, x='label', y='value') # Default
+            sns.barplot(data=df, x='label', y='value', ax=ax) # Default
         
-        plt.title(title, fontsize=16, fontweight='bold', pad=20)
-        plt.xlabel(xlabel, fontsize=12)
-        plt.ylabel(ylabel, fontsize=12)
-        plt.tight_layout()
+        ax.set_title(title, fontsize=16, fontweight='bold', pad=20)
+        ax.set_xlabel(xlabel, fontsize=12)
+        ax.set_ylabel(ylabel, fontsize=12)
+        fig.tight_layout()
         
         png_path = os.path.join(output_dir, f"{safe_title}.png")
-        plt.savefig(png_path, bbox_inches='tight')
-        plt.close()
+        
+        canvas = FigureCanvas(fig)
+        canvas.print_figure(png_path, bbox_inches='tight')
+         # No plt.close() needed as fig is local
         
         return f"Chart generated: {png_path} (Raw Data: {csv_path})"
     except Exception as e:

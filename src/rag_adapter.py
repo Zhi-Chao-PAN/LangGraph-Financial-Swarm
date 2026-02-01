@@ -22,8 +22,13 @@ class RAGAdapter:
         Settings.embed_model = HuggingFaceEmbedding(model_name=settings.EMBEDDING_MODEL)
         Settings.llm = Ollama(model=settings.LLM_MODEL, base_url=settings.LLM_BASE_URL)
         
-        self.index = self._load_data()
-        self.query_engine = self.index.as_query_engine(similarity_top_k=3)
+        self.index = None # Lazy load
+        self.query_engine = None
+
+    def _ensure_initialized(self):
+        if self.index is None:
+             self.index = self._load_data()
+             self.query_engine = self.index.as_query_engine(similarity_top_k=3)
 
     def _load_data(self) -> VectorStoreIndex:
         data_path = settings.RAG_DATA_PATH
@@ -60,8 +65,9 @@ class RAGAdapter:
         
         @retry_with_backoff(retries=3)
         async def _execute_query():
-            # Ensure initialization is verified (now strictly synchronous in __init__ or raises error)
-            # In this strict mode, we assume __init__ succeeded or we fail fast.
+            # Ensure initialization is verified
+            if self.query_engine is None:
+                self._ensure_initialized()
             return await self.query_engine.aquery(question) 
 
         try:
