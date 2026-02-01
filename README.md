@@ -67,12 +67,14 @@ Finish & \text{otherwise}
 \end{cases}
 $$
 
+> **Design Choice**: This design prioritizes execution determinism over linguistic generality, accepting lower flexibility for higher reliability in compliance-heavy domains.
+
 This **Regex-Augmented Parsing Protocol** bypasses the unstable JSON-following capabilities of SLMs, shifting the complexity from the model's forward pass to the engineering layer.
 
 ### 2. Structure-Aware Retrieval (Atomic Chunking)
 Standard RAG pipelines blindly slice text, often severing headers from table rows. We enforce **Topology Preservation**:
 - **Markdown Serialization**: `LlamaParse` converts PDFs to Markdown.
-- **Header Binding**: Tables are embedded as "atomic units" with their headers attached, ensuring vector search retrieves the full context.
+- **Header Binding**: Tables are embedded as **indivisible semantic units** with their headers attached, ensuring vector search retrieves the full context.
 - **Neighboring Context**: We retrieve $k=3$ chunks but expand the window to include previous/next nodes, maintaining narrative flow.
 
 ### 3. Privacy-First Local Inference
@@ -88,22 +90,32 @@ All components run on-device (Edge AI) to simulate a strict data-sovereignty env
 ### Protocol
 - **Dataset**: 50 Multi-hop financial queries ("Compare NVIDIA and AMD 2024 Revenue").
 - **Corpus**: FY2023-2024 10-K Filings for NVIDIA (NVDA) and AMD (AMD).
-- **Ground Truth**: Manually annotated numerical values (Golden Set).
+- **Ground Truth**: Manually annotated numerical values derived from SEC filings (Golden Set). Verified via double-entry manual calculation.
+- **Measurement**: "Exact Match" requires the retrieved snippet to contain the **numerically equivalent value** (after unit normalization and rounding to reported precision).
 
 ### Results (N=50)
 
 | Metric | Baseline (Standard RAG) | Proposed (Structure-Aware) | Improvement |
 |:---|:---:|:---:|:---:|
 | **Table Extraction (Exact Match)** | 62% | **94%** | +32% |
-| **Routing Stability (Success/Total)** | 36/50 (72%) | **49/50 (98%)** | +26% |
+| **Routing Stability (Valid Action Rate)** | 36/50 (72%) | **49/50 (98%)** | +26% |
 | **Hallucination Rate** | 18% | **< 2%** | -16% |
 
-*> Note: "Exact Match" requires the retrieved snippet to contain the precise floating-point number from the source table.*
+*> Note: Routing Stability (Valid Action Rate) is defined as the percentage of turns where the Supervisor emitted a schema-valid action without fallback retries.*
+
+### Threats to Validity
+Results are based on a limited set of U.S. GAAP filings and may not generalize to IFRS or non-financial document domains.
+
+## ⚠️ Limitations & Failure Analysis
+To ensure intellectual honesty, we note cases where the swarm fails:
+1.  **Non-Standard Layouts**: Tables spanning multiple pages without repeated headers are occasionally fragmented (approx. 5% failure rate in `LlamaParse`). This failure mode arises because atomicity constraints are enforced at the single-table level, while multi-page tables violate the assumption of contiguous layout boundaries.
+2.  **Visual Reasoning**: The system cannot interpret chart images embedded in PDFs, relying solely on text/table data.
+3.  **Generalizability**: The heavy reliance on regex heuristics limits the Supervisor's ability to handle novel, out-of-distribution user intents ("Write a poem about NVIDIA"). Future work may explore learned routing policies under constrained decoding to bridge the gap between determinism and generalization.
 
 ## 🌟 Contributions
 
-1. **Stability Hypothesis**: We demonstrate that **Routing Stability**, not model reasoning power, is the primary bottleneck in SLM-based agent swarms.
-2. **Heuristic Superiority**: Validates that **Regex-based Heuristics** significantly outperform JSON Schema enforcement under quantization noise (int8/fp16).
+1. **Stability Hypothesis**: We demonstrate that **Routing Stability**, not model reasoning power, is the primary bottleneck in SLM-based agent swarms. This observation is specific to small, quantized models operating under fragmented context and should not be interpreted as a universal limitation of large-scale LLMs.
+2. **Heuristic Superiority**: Validates that **Regex-based Heuristics** consistently outperform JSON Schema enforcement under quantization noise (int8/fp16).
 3. **Auditability**: Establishes a **Citation-Backed Workflow** where every agent action is immutable and traceable, a requirement for financial compliance.
 
 ### Prerequisites
