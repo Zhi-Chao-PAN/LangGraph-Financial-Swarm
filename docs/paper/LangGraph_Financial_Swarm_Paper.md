@@ -1,7 +1,7 @@
 # Swarms in Finance: Robust Multi-Agent Orchestration for Multi-Modal Financial Analysis using Directed Cyclic Graphs
 
 **Abstract**
-Financial analysis is a complex, multi-modal task requiring high precision, disparate skill sets (data retrieval, code execution, strategic planning), and auditable decision-making. Traditional linear Large Language Model (LLM) workflows (chains) often fail to handle the iterative nature of research, while unconstrained autonomous agents suffer from stability issues and infinite loops. This paper presents a **Financial Swarm Orchestrator**, a hierarchical multi-agent system built on **LangGraph**. By modeling the workflow as a Directed Cyclic Graph (DCG) with a specialized "Supervisor" node, we achieve a system that is both flexible and robust. Our implementation features persistent RAG caching, rigorous input validation, and a self-healing supervision protocol, demonstrating a blueprint for deploying LLM swarms in high-stakes financial environments.
+4. Financial analysis is a complex, multi-modal task requiring high precision, disparate skill sets (data retrieval, code execution, strategic planning), and auditable decision-making. Traditional linear Large Language Model (LLM) workflows (chains) often fail to handle the iterative nature of research, while unconstrained autonomous agents suffer from stability issues and infinite loops. This paper presents a **Financial Swarm Orchestrator**, a hierarchical multi-agent system built on **LangGraph**. By modeling the workflow as a **Stateful Cyclic Graph (SCG)** with a specialized "Supervisor" node, we achieve a system that is both flexible and robust. Our implementation features persistent RAG caching, rigorous input validation, and a self-healing supervision protocol, demonstrating a blueprint for deploying LLM swarms in high-stakes financial environments.
 
 ## 1. Introduction
 The integration of Large Language Models (LLMs) into financial technology (FinTech) promises to democratize access to high-quality market insights. However, the "stochastic parrot" nature of LLMs poses significant risks in a domain where hallucination is unacceptable. Furthermore, financial questions (e.g., "Compare NVIDIA and AMD's 2024 revenue growth") are rarely one-shot tasks; they require a cycle of **Retrieval**, **Analysis**, **Visualization**, and **Verification**.
@@ -17,7 +17,7 @@ Early efforts like BloombergGPT demonstrated the power of domain-specific pre-tr
 ### 2.2 Orchestration Frameworks
 *   **LangChain**: Good for DAGs (Directed Acyclic Graphs) but clumsy for loops.
 *   **AutoGen**: Excellent for conversation simulation but hard to control for deterministic outputs.
-*   **LangGraph**: Allows for defining **Directed Cyclic Graphs (DCGs)**, enabling "human-in-the-loop" patterns and complex state management. We select LangGraph for its native support of state persistence and graph-based control flow.
+*   **LangGraph**: Allows for defining **Stateful Cyclic Graphs (SCGs)**, enabling "human-in-the-loop" patterns and complex state management. We select LangGraph for its native support of state persistence and graph-based control flow.
 
 ## 3. Methodology
 Our core contribution is the architectural design of a "Financial Swarm" that mimics a real-world investment research team.
@@ -40,7 +40,7 @@ We adopt a centralized topology where a **Supervisor** node connects to all work
 
 3.  **The Quant (Data Visualization)**:
     *   *Function*: Generates Python code to visualize data.
-    *   *Safety*: Operates within a sandboxed execution environment. We implement a strict `@validate_dataframe` decorator (`src/utils/validation.py`) to ensure that only valid, non-empty datasets are passed to the plotting engine, preventing runtime crashes common in LLM-generated code.
+    *   *Safety*: Operates within a containerized isolation environment. We implement a strict `@validate_dataframe` decorator (`src/utils/validation.py`) to ensure that only valid, non-empty datasets are passed to the plotting engine, preventing runtime crashes common in LLM-generated code.
 
 ### 3.3 State Management
 We define a rigorous `AgentState` using Python's `TypedDict`:
@@ -125,9 +125,9 @@ The system demonstrated the following execution flow:
 We successfully designed and implemented a **Financial Swarm Orchestrator** that bridges the gap between autonomous agents and rigid workflows. By leveraging **LangGraph's cyclic architecture** and enforcing strict engineering standards (Type Safety, Caching, Validation), we created a system that is robust enough for academic research and practical financial application. Future work will focus on integrating **Human-in-the-loop (HITL)** checkpoints to allow senior analysts to approve sensitive trade recommendations before execution.
 
 ## 7. References
-1.  LangChain AI. (2025). *LangGraph: Building Stateful, Multi-Actor Applications with LLMs*.
-2.  LlamaIndex. (2025). *Advanced RAG Techniques*.
-3.  Wu, Q., et al. (2024). *AutoGen: Enabling Next-Gen LLM Applications*.
+1.  LangChain AI. (2025). *LangGraph: Building Stateful, Multi-Actor Applications with LLMs*. [https://langchain-ai.github.io/langgraph/](https://langchain-ai.github.io/langgraph/) [Accessed: 2 Feb 2026].
+2.  LlamaIndex. (2025). *Advanced RAG Techniques*. [https://docs.llamaindex.ai/en/stable/](https://docs.llamaindex.ai/en/stable/) [Accessed: 2 Feb 2026].
+3.  Wu, Q., et al. (2024). *AutoGen: Enabling Next-Gen LLM Applications*. arXiv preprint arXiv:2308.08155.
 
 ---
 **Research Prototype for MSc Artificial Intelligence • 2026**

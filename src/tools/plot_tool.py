@@ -32,6 +32,11 @@ def create_plot(data_str: str, plot_type: str, title: str, xlabel: str, ylabel: 
     try:
         log_agent_action("Quant", "GenerateChart", f"Type: {plot_type}, Title: {title}")
         
+        # Security: Input Size Limit (50KB)
+        MAX_DATA_SIZE = 1024 * 50
+        if len(data_str) > MAX_DATA_SIZE:
+             return "Error: Data size exceeds security limit (50KB)."
+
         # Robust parsing
         try:
              df = pd.read_csv(io.StringIO(data_str))

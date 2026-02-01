@@ -37,7 +37,8 @@ def create_supervisor_node(llm: ChatOllama, members: List[str]) -> Callable[[Age
     def parse_route(ai_message):
         text = ai_message.content
         # Debug log for routing
-        # print(f"[Supervisor Thought]: {text}") 
+        from src.utils.robustness import log_agent_action
+        log_agent_action("Supervisor", "Thought", text[:200]) # Log truncated thought 
         
         # 1. Try strict regex
         match = re.search(r"Next:\s*(Researcher|Quant|FINISH)", text, re.IGNORECASE)

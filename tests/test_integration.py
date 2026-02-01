@@ -51,14 +51,15 @@ def test_supervisor_validity_under_noise():
     This proves the 'Routing Stability' claim in the README.
     """
     from src.agents.supervisor import create_supervisor_node
+    from langchain_core.messages import AIMessage
     
-    # 1. Simulate a completely broken LLM response
-    mock_llm = MagicMock()
-    mock_llm.invoke.return_value.content = "I am a stochastic parrot behaving badly with no structured output."
+    # 1. Simulate a completely broken LLM response using a callable (LCEL compatible)
+    def broken_llm(input):
+        return AIMessage(content="I am a stochastic parrot behaving badly with no structured output.")
     
     # 2. Create supervisor with standard roles
     members = ["Researcher", "Quant"]
-    supervisor_chain = create_supervisor_node(mock_llm, members)
+    supervisor_chain = create_supervisor_node(broken_llm, members)
     
     # 3. Invoke with empty state
     result = supervisor_chain.invoke({"messages": []})

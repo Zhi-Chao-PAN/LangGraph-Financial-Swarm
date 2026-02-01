@@ -26,16 +26,10 @@ class RAGAdapter:
         self.query_engine = self.index.as_query_engine(similarity_top_k=3)
 
     def _load_data(self) -> VectorStoreIndex:
-        # Check cache for index
-        # (Simplified: In production we'd serialize the index, here we cache query results)
         data_path = settings.RAG_DATA_PATH
         log_agent_action("RAGAdapter", "Initialization", "Loading/Parsing Index...")
         if not os.path.exists(data_path):
-            print(f"Data not found at {data_path}. Attempting to parse...")
-            os.makedirs(os.path.dirname(data_path), exist_ok=True)
-            # Create a dummy file if it doesn't exist, so SimpleDirectoryReader doesn't fail
-            with open(data_path, "w", encoding="utf-8") as f:
-                f.write("This is a placeholder document for RAG data.")
+             raise FileNotFoundError(f"RAG data not found at {data_path}. Please run the ingestion pipeline first.")
         
         documents = SimpleDirectoryReader(input_files=[data_path]).load_data()
         return VectorStoreIndex.from_documents(documents)
@@ -51,20 +45,24 @@ class RAGAdapter:
 
     async def aquery(self, question: str) -> Dict[str, Any]:
         """
-        Async query processing with Caching and Retry logic.
+        Async query processing with Non-blocking Caching and Retry logic.
         """
-        # 1. Check Cache
-        if question in self.cache:
+        loop = asyncio.get_running_loop()
+        
+        # 1. Check Cache (Non-blocking)
+        # DiskCache operations involve IO, so we offload to executor to prevent blocking the event loop
+        cached_result = await loop.run_in_executor(None, lambda: self.cache.get(question))
+        if cached_result:
             log_agent_action("RAGAdapter", "Query (Cache Hit)", f"Q: {question}")
-            return self.cache[question] # type: ignore
+            return cached_result # type: ignore
 
         start_time = time.time()
         
         @retry_with_backoff(retries=3)
         async def _execute_query():
-            # Ensure the query engine is initialized before calling it
-            self.ensure_initialized()
-            return await self.query_engine.aquery(question) # Use aquery for async
+            # Ensure initialization is verified (now strictly synchronous in __init__ or raises error)
+            # In this strict mode, we assume __init__ succeeded or we fail fast.
+            return await self.query_engine.aquery(question) 
 
         try:
             response = await _execute_query()
@@ -73,7 +71,6 @@ class RAGAdapter:
             sources = []
             if hasattr(response, "source_nodes"):
                 for node in response.source_nodes:
-                    # Extract metadata if available, else snippet
                     sources.append(f"Content: {node.node.get_content()[:100]}...")
             
             citation_str = "\n".join([f"[Source {i+1}]: {s}" for i, s in enumerate(sources)])
@@ -86,56 +83,21 @@ class RAGAdapter:
             
             log_agent_action("RAGAdapter", "Query", f"Q: {question} | A: {str(response)[:100]}...")
             
-            # 2. Set Cache
-            self.cache[question] = result
+            # 2. Set Cache (Non-blocking)
+            await loop.run_in_executor(None, lambda: self.cache.set(question, result))
             return result
             
         except Exception as e:
             # Fallback logic for robustness
-            msg = f"RAG Engine Connection Failed: {e}. Returning Fallback Data."
-            print(msg)
+            msg = f"RAG Engine Connection Failed: {e}. Please check your local Ollama/LlamaIndex setup."
+            print(msg) # Keeping print here for immediate console visibility, logger used below
             log_agent_action("RAGAdapter", "Error", msg)
             return {
-                "model_answer": "NVIDIA Revenue: 2023: $26.97B, 2024: $60.92B. (Fallback Data)\n\n**Citations**:\n[Source 1]: Internal Fallback Mock",
+                "model_answer": f"Error: {msg}",
                 "source_nodes": [],
                 "latency_s": 0.0
             }
 
-    def query(self, question: str) -> Dict[str, Any]:
-        """Synchronous wrapper for aquery."""
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        
-        try:
-            if loop.is_running():
-                self.ensure_initialized()
-                response = self.query_engine.query(question)
-                
-                # Extract citations (Sync)
-                sources = []
-                if hasattr(response, "source_nodes"):
-                    for node in response.source_nodes:
-                        sources.append(f"Content: {node.node.get_content()[:100]}...")
-                citation_str = "\n".join([f"[Source {i+1}]: {s}" for i, s in enumerate(sources)])
-                
-                log_agent_action("RAGAdapter", "Query (Sync)", f"Q: {question}")
-
-                return {
-                    "model_answer": str(response) + f"\n\n**Citations**:\n{citation_str}",
-                    "latency_s": 0.0
-                }
-            return loop.run_until_complete(self.aquery(question))
-        except Exception as e:
-            msg = f"RAG Engine Connection Failed: {e}. Returning Fallback Data."
-            print(msg)
-            log_agent_action("RAGAdapter", "Error", msg)
-            return {
-                "model_answer": "NVIDIA Revenue: 2023: $26.97B, 2024: $60.92B. (Fallback Data)\n\n**Citations**:\n[Source 1]: Internal Fallback Mock",
-                "latency_s": 0.0
-            }
 
 # Singleton instance for the tool to use
 adapter = RAGAdapter()

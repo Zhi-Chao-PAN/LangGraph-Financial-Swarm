@@ -43,7 +43,8 @@ def create_researcher_node(llm: ChatOllama) -> Callable[[AgentState], Dict[str, 
             tool_name = match.group(1)
             args_str = match.group(2)
             try:
-                args = json.loads(args_str)
+                from src.utils.parsing import robust_json_parse
+                args = robust_json_parse(args_str)
                 # Manually construct AIMessage with tool_calls
                 # ID is needed for ToolNode to match
                 call_id = f"call_{uuid.uuid4().hex[:8]}"
@@ -56,13 +57,17 @@ def create_researcher_node(llm: ChatOllama) -> Callable[[AgentState], Dict[str, 
                 }
                 
                 # We return an AIMessage that has tool_calls
-                # We strip the raw text content so we don't confuse the model later? 
-                # Or keep it? Usually keep it.
                 response.tool_calls = [tool_call]
                 
             except Exception as e:
-                print(f"Failed to parse tool args: {e}")
-                # Return raw response if parsing fails
+                from src.utils.robustness import log_agent_action
+                log_agent_action("Researcher", "Error", f"Failed to parse tool args: {e}")
+                # Return a system message to guide the model back
+                from langchain_core.messages import SystemMessage
+                return {
+                    "messages": [response, SystemMessage(content=f"Error: Invalid JSON format in args. Please use valid JSON. Details: {e}")],
+                    "sender": "Researcher"
+                }
         
         return {
             "messages": [response],

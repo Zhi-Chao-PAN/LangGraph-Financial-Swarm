@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     def ensure_dirs(self):
         self.DATA_DIR.mkdir(parents=True, exist_ok=True)
         self.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-        self.RAG_DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
+        # RAG_DATA_PATH directory is now managed by ingestion process, not auto-created empty.
 
 # Singleton instance
 settings = Settings()

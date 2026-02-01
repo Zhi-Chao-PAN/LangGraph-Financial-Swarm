@@ -73,7 +73,7 @@ This **Regex-Augmented Parsing Protocol** bypasses the unstable JSON-following c
 
 ### 2. Structure-Aware Retrieval (Atomic Chunking)
 Standard RAG pipelines blindly slice text, often severing headers from table rows. We enforce **Topology Preservation**:
-- **Markdown Serialization**: `LlamaParse` converts PDFs to Markdown.
+- **Markdown Serialization (Offline Pre-processing)**: `LlamaParse` converts PDFs to Markdown to retain table headers and cell alignment.
 - **Header Binding**: Tables are embedded as **indivisible semantic units** with their headers attached, ensuring vector search retrieves the full context.
 - **Neighboring Context**: We retrieve $k=3$ chunks but expand the window to include previous/next nodes, maintaining narrative flow.
 
@@ -81,7 +81,7 @@ Standard RAG pipelines blindly slice text, often severing headers from table row
 All components run on-device (Edge AI) to simulate a strict data-sovereignty environment:
 - **Orchestration**: DeepSeek-R1:8b (Ollama)
 - **Embedding**: BAAI/bge-large-en-v1.5
-- **Visualization**: Local Python Runtime
+- **Visualization**: Local Python Runtime (**Containerized Isolation**)
 
 ---
 
@@ -100,6 +100,8 @@ All components run on-device (Edge AI) to simulate a strict data-sovereignty env
 | **Table Extraction (Exact Match)** | 62% | **94%** | +32% |
 | **Routing Stability (Valid Action Rate)** | 36/50 (72%) | **49/50 (98%)** | +26% |
 | **Factuality Error Rate (Human Audit)** | 18% | **< 2%** | -16% |
+
+*> Note: Routing Stability (Valid Action Rate) measures schema-valid action emission, not task-optimal agent selection.*
 
 ### Threats to Validity
 Results are based on a limited set of U.S. GAAP filings and may not generalize to IFRS or non-financial document domains.

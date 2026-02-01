@@ -42,7 +42,8 @@ def create_quant_node(llm: ChatOllama) -> Callable[[AgentState], Dict[str, Any]]
             tool_name = match.group(1)
             args_str = match.group(2)
             try:
-                args = json.loads(args_str)
+                from src.utils.parsing import robust_json_parse
+                args = robust_json_parse(args_str)
                 call_id = f"call_{uuid.uuid4().hex[:8]}"
                 
                 tool_call = {
@@ -53,7 +54,13 @@ def create_quant_node(llm: ChatOllama) -> Callable[[AgentState], Dict[str, Any]]
                 }
                 response.tool_calls = [tool_call]
             except Exception as e:
-                print(f"Failed to parse tool args: {e}")
+                from src.utils.robustness import log_agent_action
+                log_agent_action("Quant", "Error", f"Failed to parse tool args: {e}")
+                from langchain_core.messages import SystemMessage
+                return {
+                    "messages": [response, SystemMessage(content=f"Error: Invalid JSON format in args. Please use valid JSON. Details: {e}")],
+                    "sender": "Quant"
+                }
         
         return {
             "messages": [response],
