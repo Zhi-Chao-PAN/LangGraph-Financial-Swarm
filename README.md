@@ -90,7 +90,7 @@ All components run on-device (Edge AI):
 
 1. **Clone the Repository**
    ```bash
-   git clone https://github.com/PanZhiChao666/LangGraph-Financial-Swarm.git
+   git clone https://github.com/Zhi-Chao-PAN/LangGraph-Financial-Swarm.git
    cd LangGraph-Financial-Swarm
    ```
 
@@ -176,7 +176,7 @@ If you use this project in your research, please cite it as follows:
   year = {2026},
   publisher = {GitHub},
   journal = {GitHub repository},
-  howpublished = {\url{https://github.com/ZhichaoPan/LangGraph-Financial-Swarm}}
+  howpublished = {\url{https://github.com/Zhi-Chao-PAN/LangGraph-Financial-Swarm}}
 }
 ```
 
