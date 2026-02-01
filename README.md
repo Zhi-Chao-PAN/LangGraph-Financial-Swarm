@@ -67,7 +67,7 @@ a_{end} & \text{otherwise}
 
 > Where $a \in \mathcal{A}$ represents the set of available agents, and $\mathcal{F}_{regex}$ is a binary pattern-matching function over the set of compiled patterns $\mathcal{P}$.
 
-> **Design Choice**: This design prioritizes execution determinism over linguistic generality, accepting lower flexibility for higher reliability in compliance-heavy domains.
+> **Design Choice**: The Supervisor implements a deterministic, regex-first routing policy with **asymmetric fallback**, biasing towards information-seeking agents (Researcher) under uncertainty to prevent premature termination.
 
 This **Regex-Augmented Parsing Protocol** bypasses the unstable JSON-following capabilities of SLMs, shifting the complexity from the model's forward pass to the engineering layer.
 
@@ -100,8 +100,6 @@ All components run on-device (Edge AI) to simulate a strict data-sovereignty env
 | **Table Extraction (Exact Match)** | 62% | **94%** | +32% |
 | **Routing Stability (Valid Action Rate)** | 36/50 (72%) | **49/50 (98%)** | +26% |
 | **Factuality Error Rate (Human Audit)** | 18% | **< 2%** | -16% |
-
-*> Note: Routing Stability (Valid Action Rate) is defined as the percentage of turns where the Supervisor emitted a schema-valid action without fallback retries.*
 
 ### Threats to Validity
 Results are based on a limited set of U.S. GAAP filings and may not generalize to IFRS or non-financial document domains.

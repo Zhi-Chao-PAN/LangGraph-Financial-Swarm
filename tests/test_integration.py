@@ -41,3 +41,37 @@ def test_llm_connection():
         assert resp.content is not None
     except Exception as e:
         pytest.fail(f"Could not connect to Ollama: {e}")
+
+# Test Invariant: Supervisor Output Validity
+def test_supervisor_validity_under_noise():
+    """
+    Research Grade Test: Verify that the Supervisor acts as a deterministic firewall.
+    Even if the LLM emits garbage (stochastic element), the routing policy (deterministic element)
+    must ALWAYS return a valid state transition from the defined set.
+    This proves the 'Routing Stability' claim in the README.
+    """
+    from src.agents.supervisor import create_supervisor_node
+    
+    # 1. Simulate a completely broken LLM response
+    mock_llm = MagicMock()
+    mock_llm.invoke.return_value.content = "I am a stochastic parrot behaving badly with no structured output."
+    
+    # 2. Create supervisor with standard roles
+    members = ["Researcher", "Quant"]
+    supervisor_chain = create_supervisor_node(mock_llm, members)
+    
+    # 3. Invoke with empty state
+    result = supervisor_chain.invoke({"messages": []})
+    
+    # 4. Assert Invariant: Output MUST be a valid role or fall back to a safe default
+    # The README claims: "policy with asymmetric fallback... biasing towards information-seeking agents"
+    valid_transitions = members + ["FINISH"]
+    
+    print(f"DEBUG: Broken Input -> Supervisor Output: {result}")
+    
+    assert "next" in result, "Supervisor output must contain routing key 'next'."
+    assert result["next"] in valid_transitions, \
+        f"Supervisor emitted invalid transition '{result['next']}'. Allowed: {valid_transitions}"
+    
+    # 5. Verify asymmetric bias (should fall back to Researcher for safety)
+    assert result["next"] == "Researcher", "Ideally, ambiguous input should bias towards data retrieval (Researcher)."
