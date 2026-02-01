@@ -121,10 +121,20 @@ The system demonstrated the following execution flow:
 *   **Latency**: First run: 12.5s. Second run (Cache Hit): 2.1s (83% improvement).
 *   **Reliability**: Across 50 test runs, the Regex-Augmented Supervisor successfully routed 49/50 times (98% success rate), compared to 72% for a standard LLM router without regex fallbacks.
 
-## 6. Conclusion
+- **集成测试套件**: 创建 `tests/test_integration.py`，确保核心逻辑（Config加载、工具逻辑、LLM连通性）的稳定性。
+- **代码审计**: 统一了 docstrings 为英文学术标准，清除了冗余引用。
+
+## 6. 工业级并发与安全 (Industrial Concurrency & Security)
+这是项目的核心技术护城河，也是本项目区别于简单实验性代码的关键：
+- **非阻塞懒加载 (Non-blocking Lazy Load)**: 通过 `asyncio.Lock` 和 `run_in_executor` 实现了重型模型（Embedding/LLM）的异步加载，彻底解决了 Event Loop 阻塞问题。
+- **线程安全绘图**: 绘图工具完全采用 Matplotlib 面向对象接口，支持高并发环境下的图形并发生成，无全局状态污染。
+- **输入熔断保护**: 对 LLM 输入数据实施 50KB 长度硬限制，防御型设计防止内存溢出 (OOM)。
+- **外部化 Prompt 管理**: 采用专业级 Prompt Externalization 模式，将业务逻辑与提示语解耦，提升了系统的可维护性与协作效率。
+
+## 7. Conclusion
 We successfully designed and implemented a **Financial Swarm Orchestrator** that bridges the gap between autonomous agents and rigid workflows. By leveraging **LangGraph's cyclic architecture** and enforcing strict engineering standards (Type Safety, Caching, Validation), we created a system that is robust enough for academic research and practical financial application. Future work will focus on integrating **Human-in-the-loop (HITL)** checkpoints to allow senior analysts to approve sensitive trade recommendations before execution.
 
-## 7. References
+## 8. References
 1.  LangChain AI. (2025). *LangGraph: Building Stateful, Multi-Actor Applications with LLMs*. [https://langchain-ai.github.io/langgraph/](https://langchain-ai.github.io/langgraph/) [Accessed: 2 Feb 2026].
 2.  LlamaIndex. (2025). *Advanced RAG Techniques*. [https://docs.llamaindex.ai/en/stable/](https://docs.llamaindex.ai/en/stable/) [Accessed: 2 Feb 2026].
 3.  Wu, Q., et al. (2024). *AutoGen: Enabling Next-Gen LLM Applications*. arXiv preprint arXiv:2308.08155.

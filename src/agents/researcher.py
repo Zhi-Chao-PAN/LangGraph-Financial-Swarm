@@ -8,6 +8,9 @@ import json
 import uuid
 from typing import Dict, Any, Callable, Sequence
 from langchain_core.messages import BaseMessage
+from src.utils.parsing import robust_json_parse
+from src.utils.robustness import log_agent_action
+from langchain_core.messages import SystemMessage
 
 def create_researcher_node(llm: ChatOllama) -> Callable[[AgentState], Dict[str, Any]]:
     """
@@ -43,7 +46,6 @@ def create_researcher_node(llm: ChatOllama) -> Callable[[AgentState], Dict[str, 
             tool_name = match.group(1)
             args_str = match.group(2)
             try:
-                from src.utils.parsing import robust_json_parse
                 args = robust_json_parse(args_str)
                 # Manually construct AIMessage with tool_calls
                 # ID is needed for ToolNode to match
@@ -60,9 +62,12 @@ def create_researcher_node(llm: ChatOllama) -> Callable[[AgentState], Dict[str, 
                 response.tool_calls = [tool_call]
                 
             except Exception as e:
-                from src.utils.robustness import log_agent_action
                 log_agent_action("Researcher", "Error", f"Failed to parse tool args: {e}")
                 # Return a system message to guide the model back
+                return {
+                    "messages": [response, SystemMessage(content=f"Error: Invalid JSON format in args. Please use valid JSON. Details: {e}")],
+                    "sender": "Researcher"
+                }                # Return a system message to guide the model back
                 from langchain_core.messages import SystemMessage
                 return {
                     "messages": [response, SystemMessage(content=f"Error: Invalid JSON format in args. Please use valid JSON. Details: {e}")],
