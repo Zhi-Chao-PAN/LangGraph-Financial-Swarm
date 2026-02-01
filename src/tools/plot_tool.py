@@ -50,8 +50,11 @@ def create_plot(data_str: str, plot_type: str, title: str, xlabel: str, ylabel: 
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
             
+        
+        import uuid
         safe_title = "".join([c if c.isalnum() else "_" for c in title]).lower()
-        csv_path = os.path.join(output_dir, f"{safe_title}.csv")
+        unique_id = uuid.uuid4().hex[:8] # Generate unique ID
+        csv_path = os.path.join(output_dir, f"{safe_title}_{unique_id}.csv")
         df.to_csv(csv_path, index=False)
 
         # 2. Generate Plot
@@ -80,7 +83,7 @@ def create_plot(data_str: str, plot_type: str, title: str, xlabel: str, ylabel: 
         ax.set_ylabel(ylabel, fontsize=12)
         fig.tight_layout()
         
-        png_path = os.path.join(output_dir, f"{safe_title}.png")
+        png_path = os.path.join(output_dir, f"{safe_title}_{unique_id}.png")
         
         canvas = FigureCanvas(fig)
         canvas.print_figure(png_path, bbox_inches='tight')
