@@ -58,14 +58,14 @@ graph TD
 ### 1. Hierarchical Agent Coordination via Deterministic Policy
 While theoretically modeled as a probabilistic selection $P(a | S_t)$, standard sampling fails under the quantization noise of local 8B models. We implement a **Deterministic Regex Policy** $\pi(S_t)$ to approximate the ideal router:
 
-$$
-\pi(S_t) = 
+$$\pi(S_t) = 
 \begin{cases} 
-Researcher & \text{if } \texttt{regex}(S_t) \in \text{RetrievalPatterns} \\
-Quant & \text{if } \texttt{regex}(S_t) \in \text{PlotPatterns} \\
-Finish & \text{otherwise}
-\end{cases}
-$$
+a_{search} & \text{if } \mathcal{F}_{regex}(S_t, \mathcal{P}_{retrieval}) = 1 \\
+a_{plot} & \text{if } \mathcal{F}_{regex}(S_t, \mathcal{P}_{plot}) = 1 \\
+a_{end} & \text{otherwise}
+\end{cases}$$
+
+> Where $a \in \mathcal{A}$ represents the set of available agents, and $\mathcal{F}_{regex}$ is a binary pattern-matching function over the set of compiled patterns $\mathcal{P}$.
 
 > **Design Choice**: This design prioritizes execution determinism over linguistic generality, accepting lower flexibility for higher reliability in compliance-heavy domains.
 
@@ -99,7 +99,7 @@ All components run on-device (Edge AI) to simulate a strict data-sovereignty env
 |:---|:---:|:---:|:---:|
 | **Table Extraction (Exact Match)** | 62% | **94%** | +32% |
 | **Routing Stability (Valid Action Rate)** | 36/50 (72%) | **49/50 (98%)** | +26% |
-| **Hallucination Rate** | 18% | **< 2%** | -16% |
+| **Factuality Error Rate (Human Audit)** | 18% | **< 2%** | -16% |
 
 *> Note: Routing Stability (Valid Action Rate) is defined as the percentage of turns where the Supervisor emitted a schema-valid action without fallback retries.*
 
