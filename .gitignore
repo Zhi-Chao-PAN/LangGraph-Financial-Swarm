@@ -16,6 +16,7 @@ venv.bak/
 output/
 data/parsed/
 data/rag_cache/
+run_log.txt
 *.log
 *.png
 *.pdf

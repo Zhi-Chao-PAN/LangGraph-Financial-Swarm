@@ -1,8 +1,15 @@
+# Logs
+run_log.txt
+*.log
+
+# Environment
+.env
+
+# Data and Cache
 data/rag_cache/
-data/parsed/
 __pycache__/
 *.pyc
-.env
-.git
-.vscode
-output/
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -25,9 +25,9 @@ class RAGAdapter:
         """同步的、重型的初始化逻辑 (将在线程池中运行)"""
         log_agent_action("RAGAdapter", "Initialization", "Configuring Models & Loading Index...")
         
-        # 核心修改2: 配置模型移到这里 (Lazy Config)
-        Settings.embed_model = HuggingFaceEmbedding(model_name=settings.EMBEDDING_MODEL)
-        Settings.llm = Ollama(model=settings.LLM_MODEL, base_url=settings.LLM_BASE_URL)
+        # 显式创建模型实例，不修改全局 Settings
+        embed_model = HuggingFaceEmbedding(model_name=settings.EMBEDDING_MODEL)
+        llm = Ollama(model=settings.LLM_MODEL, base_url=settings.LLM_BASE_URL)
         
         # 加载数据
         data_path = settings.RAG_DATA_PATH
@@ -35,7 +35,9 @@ class RAGAdapter:
              raise FileNotFoundError(f"RAG data not found at {data_path}")
         
         documents = SimpleDirectoryReader(input_files=[data_path]).load_data()
-        return VectorStoreIndex.from_documents(documents)
+        
+        # 显式传入嵌入模型
+        return VectorStoreIndex.from_documents(documents, embed_model=embed_model)
 
     async def _ensure_initialized_async(self):
         """异步封装初始化逻辑"""
@@ -49,7 +51,10 @@ class RAGAdapter:
             loop = asyncio.get_running_loop()
             # 核心修改3: 将重型初始化扔到线程池执行，彻底释放 Event Loop
             self.index = await loop.run_in_executor(None, self._initialize_sync)
-            self.query_engine = self.index.as_query_engine(similarity_top_k=3)
+            
+            # 显式传入 LLM 到查询引擎
+            llm = Ollama(model=settings.LLM_MODEL, base_url=settings.LLM_BASE_URL)
+            self.query_engine = self.index.as_query_engine(similarity_top_k=3, llm=llm)
 
     async def aquery(self, question: str) -> Dict[str, Any]:
         loop = asyncio.get_running_loop()

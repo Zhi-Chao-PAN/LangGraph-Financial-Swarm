@@ -1,6 +1,5 @@
 from langchain_ollama import ChatOllama
 from langchain_core.messages import HumanMessage, AIMessage
-from src.tools.plot_tool import create_plot
 from src.core.types import AgentState
 from src.core.prompts import Prompts
 import re

@@ -36,12 +36,15 @@ def create_supervisor_node(llm: ChatOllama, members: List[str]) -> Callable[[Age
     # Regex parser with robust fallback
     def parse_route(ai_message):
         text = ai_message.content
+        # 0. Strip <think> blocks for reasoning models (DeepSeek-R1, etc.)
+        text_to_parse = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE)
+        
         # Debug log for routing
         from src.utils.robustness import log_agent_action
-        log_agent_action("Supervisor", "Thought", text[:200]) # Log truncated thought 
+        log_agent_action("Supervisor", "Thought", text_to_parse[:200].strip()) # Log truncated thought 
         
-        # 1. Try strict regex
-        match = re.search(r"Next:\s*(Researcher|Quant|FINISH)", text, re.IGNORECASE)
+        # 1. Try strict regex on stripped content
+        match = re.search(r"Next:\s*(Researcher|Quant|FINISH)", text_to_parse, re.IGNORECASE)
         if match:
              return {"next": match.group(1).title() if match.group(1).upper() != "FINISH" else "FINISH"}
         

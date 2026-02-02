@@ -67,11 +67,6 @@ def create_researcher_node(llm: ChatOllama) -> Callable[[AgentState], Dict[str, 
                 return {
                     "messages": [response, SystemMessage(content=f"Error: Invalid JSON format in args. Please use valid JSON. Details: {e}")],
                     "sender": "Researcher"
-                }                # Return a system message to guide the model back
-                from langchain_core.messages import SystemMessage
-                return {
-                    "messages": [response, SystemMessage(content=f"Error: Invalid JSON format in args. Please use valid JSON. Details: {e}")],
-                    "sender": "Researcher"
                 }
         
         return {

@@ -41,6 +41,13 @@ async def main():
     )
 
     # 1. Create Nodes
+    from langgraph.prebuilt import ToolNode, tools_condition
+    from src.tools.rag_tool import query_financial_rag
+    from src.tools.plot_tool import create_plot
+    
+    tools = [query_financial_rag, create_plot]
+    tool_node = ToolNode(tools)
+    
     members: list[str] = ["Researcher", "Quant"]
     supervisor_node = create_supervisor_node(llm, members)
     researcher_node = create_researcher_node(llm)
@@ -51,16 +58,56 @@ async def main():
     workflow.add_node("Supervisor", supervisor_node)
     workflow.add_node("Researcher", researcher_node)
     workflow.add_node("Quant", quant_node)
+    workflow.add_node("tools", tool_node)
 
     # 2. Define Edges
-    for member in members:
-        workflow.add_edge(member, "Supervisor")
-
+    # Workflow: 
+    # Supervisor -> Researcher/Quant -> tools -> Researcher/Quant -> Supervisor
+    
+    # Conditional edge from Supervisor to members
     workflow.add_conditional_edges(
         "Supervisor",
         lambda x: x["next"]
     )
     
+    # Conditional edge from members to tools or back to Supervisor
+    for member in members:
+        workflow.add_conditional_edges(member, tools_condition)
+        
+    # Edge from tools back to the agent that called them
+    # Note: In a swarm, usually tools return to the sender. 
+    # tools_condition will route AIMessages with tool_calls to 'tools'
+    # and AIMessages without them to '__end__' or another node.
+    # Here, 'tools' node should return to the sender. 
+    # We can use a custom router or multiple tool nodes.
+    # Simplified: tools always go back to the caller. 
+    # But ToolNode doesn't know the sender. LangGraph 0.2+ tools_condition handles this?
+    # Actually, we should use a custom logic to route back to the sender.
+    def route_tool_output(state: AgentState):
+        return state["sender"]
+
+    workflow.add_edge("tools", route_tool_output)
+
+    # Edge from members (when NO tool call) to Supervisor
+    # This is handled by tools_condition if we route the 'else' (END) to Supervisor.
+    # Let's override tools_condition behavior or implement simple version:
+    def should_continue(state: AgentState):
+        messages = state["messages"]
+        last_message = messages[-1]
+        if last_message.tool_calls:
+            return "tools"
+        return "Supervisor"
+
+    for member in members:
+         workflow.add_conditional_edges(
+            member,
+            should_continue,
+            {
+                "tools": "tools",
+                "Supervisor": "Supervisor"
+            }
+        )
+
     workflow.add_edge(START, "Supervisor")
 
     graph = workflow.compile()
