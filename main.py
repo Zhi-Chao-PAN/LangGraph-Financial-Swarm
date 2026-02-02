@@ -70,28 +70,14 @@ async def main():
         lambda x: x["next"]
     )
     
-    # Conditional edge from members to tools or back to Supervisor
-    for member in members:
-        workflow.add_conditional_edges(member, tools_condition)
-        
-    # Edge from tools back to the agent that called them
-    # Note: In a swarm, usually tools return to the sender. 
-    # tools_condition will route AIMessages with tool_calls to 'tools'
-    # and AIMessages without them to '__end__' or another node.
-    # Here, 'tools' node should return to the sender. 
-    # We can use a custom router or multiple tool nodes.
-    # Simplified: tools always go back to the caller. 
-    # But ToolNode doesn't know the sender. LangGraph 0.2+ tools_condition handles this?
-    # Actually, we should use a custom logic to route back to the sender.
+    # Clean tool routing logic
     def route_tool_output(state: AgentState):
-        # Defensive programming: Default to Supervisor if sender is missing
+        """Standard routing: Callers handle their own tool outputs."""
         return state.get("sender", "Supervisor")
 
     workflow.add_edge("tools", route_tool_output)
 
-    # Edge from members (when NO tool call) to Supervisor
-    # This is handled by tools_condition if we route the 'else' (END) to Supervisor.
-    # Let's override tools_condition behavior or implement simple version:
+    # Conditional edge for member agents
     def should_continue(state: AgentState):
         messages = state["messages"]
         last_message = messages[-1]
@@ -100,7 +86,7 @@ async def main():
         return "Supervisor"
 
     for member in members:
-         workflow.add_conditional_edges(
+        workflow.add_conditional_edges(
             member,
             should_continue,
             {

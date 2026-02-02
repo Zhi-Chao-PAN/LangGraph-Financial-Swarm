@@ -5,7 +5,7 @@
 ![Docker Ready](https://img.shields.io/badge/docker-ready-green.svg)
 
 ## 0. Abstract
-In the domain of financial analysis, traditional Large Language Models (LLMs) often struggle with hallucination and lack of precision when handling quantitative data from complex, semi-structured documents (e.g., annual reports). This project introduces **LangGraph Financial Swarm**, a hierarchical multi-agent system designed to perform autonomous financial research and data visualization. By leveraging a **Structure-Aware Retrieval Augmented Generation (RAG)** mechanism and constraints-based routing, the system achieves higher accuracy in interpreting cross-page tables compared to standard RAG baselines. The architecture demonstrates how locally deployed quantized models (e.g., DeepSeek-R1) can effectively coordinate to solve multi-step reasoning tasks under compute-constrained environments.
+In the domain of financial analysis, traditional Large Language Models (LLMs) often struggle with hallucination and lack of precision when handling quantitative data from complex, semi-structured documents (e.g., annual reports). This project introduces **LangGraph Financial Swarm**, a hierarchical multi-agent system designed to perform autonomous financial research and data visualization. By leveraging a **Structure-Aware Retrieval Augmented Generation (RAG)** mechanism and **Cyclic Graph Orchestration**, the system achieves higher accuracy in interpreting cross-page tables compared to standard RAG baselines. The architecture demonstrates how locally deployed quantized models (e.g., DeepSeek-R1) can effectively coordinate to solve multi-step reasoning tasks under compute-constrained environments.
 
 ## 🧠 Why Hierarchical Swarm? (Theoretical Basis)
 

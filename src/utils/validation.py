@@ -38,7 +38,7 @@ def validate_dataframe(func: Callable) -> Callable:
             # Handle user passing a string representation of a list
             try:
                 data = json.loads(data_str)
-            except:
+            except Exception:
                 # If json fails, maybe it's CSV? Unlikely for this specific tool intent but good for robustness
                 raise ValueError("Invalid JSON format.")
                 

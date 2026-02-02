@@ -32,3 +32,10 @@ tests/__pycache__/
 # Build
 build/
 *.egg-info/
+# Build Artifacts
+build/
+src/*.egg-info/
+
+# OS Junk
+.DS_Store
+Thumbs.db
