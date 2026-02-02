@@ -37,37 +37,17 @@ def create_researcher_node(llm: ChatOllama) -> Callable[[AgentState], Dict[str, 
         response = llm.invoke(messages)
         content = response.content
         
-        # Regex to find tool call
-        # Pattern: TOOL_CALL: <name>\nARGS: <json>
-        pattern = r"TOOL_CALL:\s*(query_financial_rag)\s*ARGS:\s*(\{.*?\})"
-        match = re.search(pattern, content, re.DOTALL | re.IGNORECASE)
+        from src.utils.tool_parsing import ToolParser
         
-        if match:
-            tool_name = match.group(1)
-            args_str = match.group(2)
-            try:
-                args = robust_json_parse(args_str)
-                # Manually construct AIMessage with tool_calls
-                # ID is needed for ToolNode to match
-                call_id = f"call_{uuid.uuid4().hex[:8]}"
-                
-                tool_call = {
-                    "name": tool_name.strip(),
-                    "args": args,
-                    "id": call_id,
-                    "type": "tool_call" # LangChain specific? No, standard dict for tool_call
-                }
-                
-                # We return an AIMessage that has tool_calls
-                response.tool_calls = [tool_call]
-                
-            except Exception as e:
-                log_agent_action("Researcher", "Error", f"Failed to parse tool args: {e}")
-                # Return a system message to guide the model back
-                return {
-                    "messages": [response, SystemMessage(content=f"Error: Invalid JSON format in args. Please use valid JSON. Details: {e}")],
-                    "sender": "Researcher"
-                }
+        # Use centralized ToolParser (DRY Principle)
+        tool_call = ToolParser.parse_tool_call(content, ["query_financial_rag"], "Researcher")
+        
+        if tool_call:
+            response.tool_calls = [tool_call]
+        else:
+            # If no tool call found, check if we need to handle parsing errors or just return the response
+            # efficient-handling: ToolParser logs errors internally.
+            pass
         
         return {
             "messages": [response],

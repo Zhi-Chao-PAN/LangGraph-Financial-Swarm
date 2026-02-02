@@ -84,7 +84,8 @@ async def main():
     # But ToolNode doesn't know the sender. LangGraph 0.2+ tools_condition handles this?
     # Actually, we should use a custom logic to route back to the sender.
     def route_tool_output(state: AgentState):
-        return state["sender"]
+        # Defensive programming: Default to Supervisor if sender is missing
+        return state.get("sender", "Supervisor")
 
     workflow.add_edge("tools", route_tool_output)
 

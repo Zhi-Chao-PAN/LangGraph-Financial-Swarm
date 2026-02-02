@@ -36,30 +36,13 @@ def create_quant_node(llm: ChatOllama) -> Callable[[AgentState], Dict[str, Any]]
         response = llm.invoke(messages)
         content = response.content
         
-        # Regex to find tool call
-        pattern = r"TOOL_CALL:\s*(create_plot)\s*ARGS:\s*(\{.*?\})"
-        match = re.search(pattern, content, re.DOTALL | re.IGNORECASE)
+        from src.utils.tool_parsing import ToolParser
         
-        if match:
-            tool_name = match.group(1)
-            args_str = match.group(2)
-            try:
-                args = robust_json_parse(args_str)
-                call_id = f"call_{uuid.uuid4().hex[:8]}"
-                
-                tool_call = {
-                    "name": tool_name.strip(),
-                    "args": args,
-                    "id": call_id,
-                    "type": "tool_call"
-                }
-                response.tool_calls = [tool_call]
-            except Exception as e:
-                log_agent_action("Quant", "Error", f"Failed to parse tool args: {e}")
-                return {
-                    "messages": [response, SystemMessage(content=f"Error: Invalid JSON format in args. Please use valid JSON. Details: {e}")],
-                    "sender": "Quant"
-                }
+        # Use centralized ToolParser (DRY Principle)
+        tool_call = ToolParser.parse_tool_call(content, ["create_plot"], "Quant")
+        
+        if tool_call:
+            response.tool_calls = [tool_call]
         
         return {
             "messages": [response],

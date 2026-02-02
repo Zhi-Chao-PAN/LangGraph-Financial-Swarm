@@ -19,35 +19,43 @@ def normalize_number(s: str) -> float:
 
 def check_exact_match(model_answer: str, ground_truth: str) -> bool:
     """
-    Checks if the model answer contains the ground truth number.
-    Allows for some formatting differences (commas, etc).
+    Evaluates if the model answer semantically contains the ground truth.
+    
+    Methodology:
+    1. Numerical Equivalence: Extracts floats and checks for equality within epsilon tolerance (1e-2).
+    2. String Inclusion: For non-numeric truths, checks for case-insensitive substring existence.
+    
+    Args:
+        model_answer (str): The raw output from the LLM.
+        ground_truth (str): The expected answer/value.
+        
+    Returns:
+        bool: True if the answer is judged correct, False otherwise.
     """
     if not ground_truth or ground_truth == "N/A":
         return False
         
+    # Strategy 1: Numerical Match
     gt_val = normalize_number(str(ground_truth))
-    if gt_val is None:
-        return False
+    if gt_val is not None:
+        # Remove commas from model answer for regex
+        answer_clean = model_answer.replace(",", "")
+        numbers = re.findall(r"[-+]?\d*\.\d+|\d+", answer_clean)
         
-    # Heuristic: Check if the number appears in the answer
-    # We normalize numbers in the model answer and see if any match the GT within a tolerance
+        for num_str in numbers:
+            try:
+                val = float(num_str)
+                if abs(val - gt_val) < 0.01: # Epsilon tolerance
+                    return True
+            except:
+                continue
     
-    # Extract all numbers from model answer
-    # This is a 'loose' exact match - if the number is present, we count it.
-    # A stricter version would parse the answer structurally.
-    
-    # Remove commas from model answer for regex
-    answer_clean = model_answer.replace(",", "")
-    numbers = re.findall(r"[-+]?\d*\.\d+|\d+", answer_clean)
-    
-    for num_str in numbers:
-        try:
-            val = float(num_str)
-            if abs(val - gt_val) < 0.01: # Check within tolerance
-                return True
-        except:
-            continue
-            
+    # Strategy 2: Text Match (Fallback for qualitative answers)
+    # If no number found in GT (or even if found, maybe the text context matters?)
+    # For now, if numeric matching failed (or wasn't applicable), try naive inclusion.
+    if str(ground_truth).lower() in model_answer.lower():
+        return True
+        
     return False
 
 def calculate_metrics(results: List[Dict[str, Any]]) -> Dict[str, Any]:

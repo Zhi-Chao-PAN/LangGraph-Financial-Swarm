@@ -40,7 +40,15 @@ class RAGAdapter:
         return VectorStoreIndex.from_documents(documents, embed_model=embed_model)
 
     async def _ensure_initialized_async(self):
-        """异步封装初始化逻辑"""
+        """
+        Asynchronously ensures the RAG engine is initialized.
+        
+        Thread-Safety:
+            Implements the "Double-Checked Locking" pattern using asyncio.Lock 
+            to prevents race conditions during concurrent initialization requests.
+            The heavy initialization logic is offloaded to a thread pool executor
+            to avoid blocking the main event loop.
+        """
         if self.query_engine is not None:
             return
 

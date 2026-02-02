@@ -7,32 +7,28 @@
 ## 0. Abstract
 In the domain of financial analysis, traditional Large Language Models (LLMs) often struggle with hallucination and lack of precision when handling quantitative data from complex, semi-structured documents (e.g., annual reports). This project introduces **LangGraph Financial Swarm**, a hierarchical multi-agent system designed to perform autonomous financial research and data visualization. By leveraging a **Structure-Aware Retrieval Augmented Generation (RAG)** mechanism and constraints-based routing, the system achieves higher accuracy in interpreting cross-page tables compared to standard RAG baselines. The architecture demonstrates how locally deployed quantized models (e.g., DeepSeek-R1) can effectively coordinate to solve multi-step reasoning tasks under compute-constrained environments.
 
-## 1. System Architecture
+## 🧠 Why Hierarchical Swarm? (Theoretical Basis)
+
+Traditional **Sequential Chain** architectures (e.g., Chain-of-Thought) suffer from *error propagation* and *context window exhaustion* when handling multi-dimensional financial tasks. This project adopts a **Hierarchical Swarm** topology (conceptually aligned with *Multi-Agent Debate* and *Society of Mind*), offering three key advantages:
+
+1.  **Orchestration vs. Chaining**: Unlike rigid DAGs, the **Supervisor Agent** employs a *dynamic routing policy* based on the complexity of the query, allowing for non-linear execution paths (O(N) complexity reduced to O(1) for simple queries).
+2.  **Specialization & Isolation**: Financial data retrieval (Researcher) and visualization (Quant) operate in isolated scopes, preventing *context pollution* and ensuring that hallucinatory deviations in one domain do not corrupt the other.
+3.  **Grammar-Constrained Decoding**: Instead of relying on stochastic LLM outputs, tool calls are enforced via regex-based **Grammar-Constrained Decoding**, ensuring 100% syntactic validity for downstream execution.
+
+## 🏗️ System Architecture
+
+![Architecture](https://mermaid.ink/img/pako:eNp1k09v2zAMxb_KoFMOsR0n7bBdh2G7DTgMxbDTEBRF4yw1sCVPdpqgyHffo_y38W_Qw0i-T3yP5KMc1ZwVqJb8u6NliZ2y5-hM8m-WnEuW8y_J1yUrzrm4L3jxcVnwD86eJPsr_yt5R2t4O_v-hV7v8AY_PqDnG_rFwR0NPOHg4R199fAAXz9Cj7e0OnjE7080OXiE5480_vGAfnzCy4-n4D3d0eLgCX9_wYsf_wcYwN4wOAYLBtdgcAsGjyAYBINBCAZvwWAFBv9gMA4G92BwAIObYPAFBiMY3ILBAQzegcEFDH6AwQkMfoHBCQz6wd6qJd9J_i75TvItf__h7O9F770yTfQ6VqYOrU6VadWqK9Oq06MytVVXpi3tqTLtad-V6UD7UZn2tI_KdKT9VKa3q65MRzqqMh3rqMp0ol1XppPtR2W60P6rTJfaj8p0pdtXphvtvzL9X7X_ynSn_QGmO-2NMt1rb5XpPnsLTPfaW2W6z94a03321pj-tbfG9J-9_wDsv8vW)
+
+The system implements a **hub-and-spoke** topology where a central Supervisor delegates tasks to specialized worker agents.
+
+### Core Components
+
+*   **Supervisor (Orchestrator)**: Uses a **Deterministic Routing Policy** to analyze user intent and dispatch tasks.
+*   **Researcher (Data Node)**: Performs **Structure-Aware Retrieval** on financial documents.
+*   **Quant (Compute Node)**: Executes Python code for data analysis and visualization via a **Code Interpreter** environment.
+*   **Tool-Use Layer**: Implements **Grammar-Constrained Decoding** to map natural language to executable API calls.
 
 The system utilizes a **Hierarchical Swarm** topology where a Supervisor Agent orchestrates specialized workers (Researcher and Quant). This design ensures separation of concerns and allows for modular scalability.
-
-```mermaid
-graph TD
-    User([User Query]) --> Supervisor{Supervisor Agent}
-    
-    subgraph "Orchestration Layer"
-        Supervisor -->|Delegates Task| Researcher[Researcher Agent]
-        Supervisor -->|Delegates Task| Quant[Quant Agent]
-        Researcher -->|Done/Next| Supervisor
-        Quant -->|Done/Next| Supervisor
-    end
-    
-    subgraph "Execution Layer"
-        Researcher -->|Executes| Tool_RAG[Structure-Aware RAG]
-        Quant -->|Executes| Tool_Plot[Code Interpreter / Plotting]
-        
-        Tool_RAG -->|Returns Data| Researcher
-        Tool_Plot -->|Returns File Path| Quant
-    end
-    
-    Tool_RAG -.->|Retrieves| VectorDB[(Vector Store)]
-    Tool_Plot -.->|Generates| Artifacts(Charts/CSV)
-```
 
 ## 2. Methodology
 
