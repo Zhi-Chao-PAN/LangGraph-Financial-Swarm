@@ -1,7 +1,6 @@
 # src/tools/rag_tool.py
 import os
 from typing import Optional
-from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_core.tools import tool
 
 from src.rag_adapter import adapter
