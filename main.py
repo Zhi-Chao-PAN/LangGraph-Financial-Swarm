@@ -67,7 +67,12 @@ async def main():
     # Conditional edge from Supervisor to members
     workflow.add_conditional_edges(
         "Supervisor",
-        lambda x: x["next"]
+        lambda x: x["next"],
+        {
+            "Researcher": "Researcher",
+            "Quant": "Quant",
+            "FINISH": END
+        }
     )
     
     # Clean tool routing logic
@@ -75,7 +80,7 @@ async def main():
         """Standard routing: Callers handle their own tool outputs."""
         return state.get("sender", "Supervisor")
 
-    workflow.add_edge("tools", route_tool_output)
+    workflow.add_conditional_edges("tools", route_tool_output)
 
     # Conditional edge for member agents
     def should_continue(state: AgentState):
