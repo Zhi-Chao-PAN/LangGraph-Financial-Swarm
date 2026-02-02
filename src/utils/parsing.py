@@ -5,38 +5,36 @@ from typing import Any, Dict, List, Union
 
 def robust_json_parse(json_str: str) -> Union[Dict, List, Any]:
     """
-    Robustly parse JSON strings, prioritizing standard libraries over heuristics.
+    Robustly parse JSON strings, strictly prioritizing professional libraries.
     
-    Strategy:
-    1. Try `json5` (supports trailing commas, comments, single quotes).
+    1. Try `json5` (Handles trailing commas, comments, single quotes).
     2. Fallback to standard `json`.
-    3. Last resort heuristics for common LLM malformations.
+    3. Last resort: Heuristic repair for common LLM malformations (e.g. invalid boolean literals).
     """
     if not json_str:
         raise ValueError("Empty JSON string")
 
-    # 1. Try json5 (Best for LLM outputs like single quotes/trailing commas)
+    # 1. First Priority: json5 (Professional standard for loose JSON)
     try:
         import json5
         return json5.loads(json_str)
     except (ImportError, Exception):
-        # json5 not available or failed
         pass
 
-    # 2. Standard JSON fallback
+    # 2. Second Priority: Standard JSON
     try:
         return json.loads(json_str)
     except json.JSONDecodeError:
         pass
 
-    # 3. Last Resort Heuristics (Explicitly marked)
-    # Only attempted if professional parsers fail. 
-    # LLMs sometimes output Python dictionaries (e.g. {'key': True}).
-    cleaned = json_str.replace("True", "true").replace("False", "false").replace("None", "null")
-    if "'" in cleaned and '"' not in cleaned:
-        cleaned = cleaned.replace("'", '"')
-    
+    # 3. Last Resort: Heuristic Fallback
+    # CAUTION: String replacement is dangerous. Only done if standard parsing fails.
     try:
+        # Resolve Python literals to JSON
+        cleaned = json_str.replace("True", "true").replace("False", "false").replace("None", "null")
+        # heuristic: replace single quotes if no double quotes exist
+        if "'" in cleaned and '"' not in cleaned:
+             cleaned = cleaned.replace("'", '"')
         return json.loads(cleaned)
     except json.JSONDecodeError:
         raise ValueError(f"Failed to parse JSON content: {json_str[:50]}...")

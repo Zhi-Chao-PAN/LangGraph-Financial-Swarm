@@ -54,8 +54,8 @@ def ingest_data(input_path: str, output_path: str):
             # 3. During serialization, H is prepended to each R_i string.
             # result = [f"{H} | {row.text}" for row in T.rows]
             
-            # Note: In this reference implementation, we use a heuristic concatenation strategy. 
-            # For the full Context-Injection Algorithm described in the paper, refer to the proposed methodology section.
+            # Note: This is a reference implementation of the ingestion pipeline. 
+            # For the full Context-Injection methodology, refer to the project documentation.
             structure_aware_md = ""
             for doc in documents:
                 structure_aware_md += doc.text + "\n\n"
