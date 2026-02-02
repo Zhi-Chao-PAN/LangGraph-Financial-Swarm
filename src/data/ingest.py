@@ -19,36 +19,53 @@ def ingest_data(input_path: str, output_path: str):
     # Create output directory if it doesn't exist
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-    # placeholder: Just read and write for now
-    # Recommended: Use LlamaParse here for academic precision
-    # [Structure-Aware Parsing Implementation]
-    # LlamaParse is capable of reconstructing complex tables which is critical for financial reports.
-    # 
-    # Pseudocode/Implementation:
-    # from llama_parse import LlamaParse
-    # parser = LlamaParse(result_type="markdown", verbose=True, language="en")
-    # documents = parser.load_data(input_path)
-    # 
-    # structure_aware_md = ""
-    # for doc in documents:
-    #     # Post-processing to ensure table integrity
-    #     structure_aware_md += doc.text + "\n\n"
-    #
-    # with open(output_path, 'w', encoding='utf-8') as f:
-    #     f.write(structure_aware_md)
+    # Activate LlamaParse if API Key is available and input is PDF
+    api_key = settings.LLAMA_CLOUD_API_KEY
     
-    # Fallback to simple copy for prototype if LlamaParse key is missing
+    if api_key and input_path.lower().endswith(".pdf"):
+        print("🔍 LlamaCloud API Key found. Using LlamaParse for structure-aware conversion...")
+        try:
+            from llama_parse import LlamaParse
+            
+            # Configure parser
+            parser = LlamaParse(
+                api_key=api_key,
+                result_type="markdown",
+                verbose=True,
+                language="en",
+                num_workers=4
+            )
+            
+            # Perform parsing
+            documents = parser.load_data(input_path)
+            
+            # Combine results
+            structure_aware_md = ""
+            for doc in documents:
+                structure_aware_md += doc.text + "\n\n"
+            
+            # Save output
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(structure_aware_md)
+            
+            print(f"✅ LlamaParse Ingestion Complete: {output_path}")
+            return # Exit after successful parsing
+            
+        except Exception as e:
+            print(f"❌ LlamaParse failed: {e}. Falling back to standard method.")
+    
+    # Fallback/Standard method for MD or when Key is missing
     try:
         if input_path.endswith(".md"):
             with open(input_path, 'r', encoding='utf-8') as f:
                 content = f.read()
             with open(output_path, 'w', encoding='utf-8') as f:
                 f.write(content)
+            print(f"✅ Markdown Ingestion Complete: {output_path}")
         else:
-            print("⚠️ LlamaParse skipped (Key missing). Using direct file copy.")
-            # In production, raise error or implementing simple PDF text extraction here
+            print("⚠️ LlamaParse skipped (Key missing or not a PDF). Direct ingestion not possible for this format.")
     except Exception as e:
-         pass
+         print(f"❌ Standard Ingestion Failed: {e}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Ingest financial data for RAG.")
