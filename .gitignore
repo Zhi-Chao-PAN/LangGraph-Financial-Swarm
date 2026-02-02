@@ -28,3 +28,7 @@ run_log.txt
 # Testing
 .pytest_cache/
 tests/__pycache__/
+
+# Build
+build/
+*.egg-info/
