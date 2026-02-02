@@ -1,4 +1,5 @@
 # Logs
+.git
 run_log.txt
 *.log
 

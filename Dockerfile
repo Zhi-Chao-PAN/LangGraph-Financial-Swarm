@@ -15,7 +15,9 @@ COPY --from=builder /root/.local /root/.local
 ENV PATH=/root/.local/bin:$PATH
 
 # Copy source code
-COPY . .
+# Copy source code
+COPY src/ ./src/
+COPY main.py ./
 
 # Create non-root user for security
 RUN useradd -m appuser && chown -R appuser /app
