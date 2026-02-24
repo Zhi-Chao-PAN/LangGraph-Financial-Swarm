@@ -4,92 +4,103 @@ import argparse
 from pathlib import Path
 from src.core.config import settings
 
+
 def ingest_data(input_path: str, output_path: str):
     """
-    Simple ingestion script to prepare data for RAG.
-    Currently a placeholder that copies/moves files, but intended for 
-    LlamaParse integration to convert PDF -> MD.
+    Ingest financial data for RAG. Supports PDF (via LlamaParse) and Markdown.
     """
-    print(f"🚀 Starting Ingestion: {input_path} -> {output_path}")
-    
-    if not os.path.exists(input_path):
-        print(f"❌ Error: Input path {input_path} does not exist.")
-        return
+    print(f"Ingesting: {input_path} -> {output_path}")
 
-    # Create output directory if it doesn't exist
+    if not os.path.exists(input_path):
+        print(f"Error: {input_path} does not exist.")
+        return False
+
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-    # Activate LlamaParse if API Key is available and input is PDF
     api_key = settings.LLAMA_CLOUD_API_KEY
-    
+
     if api_key and input_path.lower().endswith(".pdf"):
-        print("🔍 LlamaCloud API Key found. Using LlamaParse for structure-aware conversion...")
-        try:
-            from llama_parse import LlamaParse
-            
-            # Configure parser
-            parser = LlamaParse(
-                api_key=api_key,
-                result_type="markdown",
-                verbose=True,
-                language="en",
-                num_workers=4
-            )
-            
-            # Perform parsing
-            documents = parser.load_data(input_path)
-            
-            # [Research Innovation: Context-Injection Algorithm]
-            # Standard RAG suffers from "context fragmentation" where table rows lose their headers.
-            # We implement a recursive Context-Injection Algorithm:
-            # 
-            # Definition: 
-            # Let T be a table with Header H and Rows {R_1...R_n}.
-            # The injection function F(R_i) -> Chunk_i is defined as:
-            # Chunk_i = Semantically_Fuse(H, R_i)
-            # 
-            # Implementation:
-            # 1. Layout Analysis identifies T.
-            # 2. H is cached.
-            # 3. During serialization, H is prepended to each R_i string.
-            # result = [f"{H} | {row.text}" for row in T.rows]
-            
-            # Note: This is a reference implementation of the ingestion pipeline. 
-            # For the full Context-Injection methodology, refer to the project documentation.
-            structure_aware_md = ""
-            for doc in documents:
-                structure_aware_md += doc.text + "\n\n"
-            
-            # Save output
-            with open(output_path, 'w', encoding='utf-8') as f:
-                f.write(structure_aware_md)
-            
-            print(f"✅ LlamaParse Ingestion Complete: {output_path}")
-            return # Exit after successful parsing
-            
-        except Exception as e:
-            print(f"❌ LlamaParse failed: {e}. Falling back to standard method.")
-    
-    # Fallback/Standard method for MD or when Key is missing
+        return _ingest_pdf(input_path, output_path, api_key)
+    elif input_path.lower().endswith(".md"):
+        return _ingest_markdown(input_path, output_path)
+    else:
+        print(f"Unsupported format: {input_path}")
+        return False
+
+
+def _ingest_pdf(input_path: str, output_path: str, api_key: str) -> bool:
+    """Ingest PDF via LlamaParse."""
     try:
-        if input_path.endswith(".md"):
-            with open(input_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-            with open(output_path, 'w', encoding='utf-8') as f:
-                f.write(content)
-            print(f"✅ Markdown Ingestion Complete: {output_path}")
-        else:
-            print("⚠️ LlamaParse skipped (Key missing or not a PDF). Direct ingestion not possible for this format.")
+        from llama_parse import LlamaParse
+
+        parser = LlamaParse(
+            api_key=api_key,
+            result_type="markdown",
+            verbose=True,
+            language="en",
+            num_workers=4,
+        )
+        documents = parser.load_data(input_path)
+
+        content = "\n\n".join(doc.text for doc in documents)
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        print(f"PDF ingestion complete: {output_path}")
+        return True
     except Exception as e:
-         print(f"❌ Standard Ingestion Failed: {e}")
+        print(f"LlamaParse failed: {e}")
+        return False
+
+
+def _ingest_markdown(input_path: str, output_path: str) -> bool:
+    """Copy markdown file to output path."""
+    try:
+        with open(input_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(content)
+        print(f"Markdown ingestion complete: {output_path}")
+        return True
+    except Exception as e:
+        print(f"Ingestion failed: {e}")
+        return False
+
+
+def ingest_directory(input_dir: str, output_path: str):
+    """Ingest all supported files from a directory into a single output."""
+    input_dir = Path(input_dir)
+    files = sorted(input_dir.glob("*.md")) + sorted(input_dir.glob("*.pdf"))
+
+    if not files:
+        print(f"No supported files in {input_dir}")
+        return False
+
+    combined = []
+    for f in files:
+        print(f"  Processing: {f.name}")
+        if f.suffix == ".md":
+            combined.append(f.read_text(encoding="utf-8"))
+        # PDF would need LlamaParse, skip in batch mode
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as out:
+        out.write("\n\n---\n\n".join(combined))
+
+    print(f"Batch ingestion complete: {len(combined)} files -> {output_path}")
+    return True
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Ingest financial data for RAG.")
-    parser.add_argument("--input", type=str, help="Path to raw data (PDF/TXT/MD)")
+    parser.add_argument("--input", type=str, help="Path to raw data (PDF/MD) or directory")
+    parser.add_argument("--output", type=str, default=None, help="Output path")
     args = parser.parse_args()
-    
-    # Use defaults from settings if not provided
+
     input_file = args.input or "data/raw/sample_financials.md"
-    output_file = settings.RAG_DATA_PATH
-    
-    ingest_data(input_file, output_file)
+    output_file = args.output or str(settings.RAG_DATA_PATH)
+
+    if os.path.isdir(input_file):
+        ingest_directory(input_file, output_file)
+    else:
+        ingest_data(input_file, output_file)

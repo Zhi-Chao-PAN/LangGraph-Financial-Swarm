@@ -1,22 +1,27 @@
 # Security Policy
 
-## Supported Versions
+## Local-First Architecture
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 1.0.x   | :white_check_mark: |
-| < 1.0   | :x:                |
+This project runs entirely locally via Ollama. No data is sent to external APIs by default.
 
-## Reporting a Vulnerability
+## Reporting Vulnerabilities
 
-We take security seriously. If you discover a vulnerability:
+If you discover a security issue, please email the maintainer directly rather than opening a public issue.
 
-1.  **Do NOT open a GitHub Issue.**
-2.  Email `security@financial-swarm.local` immediately.
-3.  We will acknowledge within 24 hours.
+## Data Handling
 
-### Input Sanitization
-This project uses `src.utils.validation.sanitize_input` to scrub CLI arguments.
+- Financial data in `data/parsed/` is sourced from public SEC EDGAR filings
+- No proprietary or confidential data is included
+- RAG cache (`data/rag_cache/`) stores embeddings locally — clear it if sharing the repo
 
-### Dependencies
-We use `requirements.txt` with pinned versions to prevent Supply Chain Attacks.
+## Dependencies
+
+- Ollama: Local LLM inference
+- LlamaIndex: RAG framework (local embeddings via HuggingFace)
+- LangGraph/LangChain: Agent orchestration
+- matplotlib: Chart generation (no network access)
+
+## API Keys
+
+- `LLAMA_CLOUD_API_KEY`: Optional, only needed for LlamaParse PDF ingestion
+- Store in `.env` (gitignored), never commit

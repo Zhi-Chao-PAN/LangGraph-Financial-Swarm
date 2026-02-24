@@ -1,48 +1,86 @@
-from langchain_ollama import ChatOllama
-from langchain_core.messages import HumanMessage, AIMessage
+import re
+import json
+from typing import Dict, Any, Callable
+from langchain_core.messages import AIMessage, SystemMessage
 from src.core.types import AgentState
-from src.core.prompts import Prompts
-from typing import Dict, Any, Callable, Sequence 
-from src.utils.parsing import robust_json_parse
 from src.utils.robustness import log_agent_action
-from langchain_core.messages import SystemMessage
 
-def create_quant_node(llm: ChatOllama) -> Callable[[AgentState], Dict[str, Any]]:
+CHART_PROMPT = """You are a financial data visualization expert. Based on the context, generate chart parameters as JSON.
+
+Output ONLY valid JSON with these keys:
+{
+  "data_str": "[{...}]",
+  "plot_type": "bar|line|pie|stacked_bar",
+  "title": "Chart Title",
+  "xlabel": "X-axis label",
+  "ylabel": "Y-axis label"
+}
+
+Rules:
+- data_str must be a JSON array string with consistent keys
+- For comparisons: use grouped bar chart
+- For trends over time: use line chart
+- For composition/share: use pie chart
+- Include actual numbers from the context, not placeholders"""
+
+
+def create_quant_node(llm) -> Callable[[AgentState], Dict[str, Any]]:
     """
-    Creates the Quant node for data visualization.
-    
-    Args:
-        llm (ChatOllama): The local LLM instance.
-        
-    Returns:
-        Callable[[AgentState], Dict[str, Any]]: The state-graph compatible node function.
+    Creates the Quant node for financial data visualization.
+    Supports bar, line, pie, and stacked_bar charts.
     """
-    
+
     def quant_node(state: AgentState) -> Dict[str, Any]:
-        """
-        Process the state and generate a visualization response.
+        messages = state.get("messages", [])
 
-        Args:
-            state (AgentState): The current graph state.
+        # Gather context from recent messages
+        context_parts = []
+        for msg in messages[-5:]:
+            if hasattr(msg, "content") and msg.content:
+                context_parts.append(msg.content)
+        context = "\n".join(context_parts)
 
-        Returns:
-            Dict[str, Any]: Updated state with Quant's response.
-        """
-        messages = [HumanMessage(content=Prompts.QUANT_SYSTEM)] + state["messages"]
-        response = llm.invoke(messages)
-        content = response.content
-        
-        from src.utils.tool_parsing import ToolParser
-        
-        # Use centralized ToolParser (DRY Principle)
-        tool_call = ToolParser.parse_tool_call(content, ["create_plot"], "Quant")
-        
-        if tool_call:
-            response.tool_calls = [tool_call]
-        
+        # Extract user question
+        user_question = ""
+        for msg in messages:
+            if isinstance(msg, tuple) and len(msg) == 2 and msg[0] == "user":
+                user_question = msg[1]
+                break
+            elif hasattr(msg, "type") and msg.type == "human":
+                user_question = msg.content
+                break
+
+        prompt = f"{CHART_PROMPT}\n\nUser question: {user_question}\n\nContext:\n{context[:2000]}"
+
+        try:
+            response = llm.invoke([SystemMessage(content=prompt)])
+            content = response.content
+
+            # Remove <think> blocks
+            content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+
+            json_match = re.search(r"\{.*\}", content, re.DOTALL)
+            if json_match:
+                from src.tools.plot_tool import create_plot
+                params = json.loads(json_match.group())
+
+                log_agent_action("Quant", "Chart", f"Type: {params.get('plot_type', 'bar')}, Title: {params.get('title', 'N/A')}")
+
+                result = create_plot.invoke(params)
+                final = f"Visualization complete. {result}"
+            else:
+                final = f"Could not generate chart parameters. Raw output: {content[:200]}"
+                log_agent_action("Quant", "Warning", "No JSON found in LLM output")
+        except json.JSONDecodeError as e:
+            final = f"Invalid JSON from LLM: {e}"
+            log_agent_action("Quant", "Error", final)
+        except Exception as e:
+            final = f"Chart generation failed: {e}"
+            log_agent_action("Quant", "Error", final)
+
         return {
-            "messages": [response],
-            "sender": "Quant"
+            "messages": [AIMessage(content=final)],
+            "sender": "Quant",
         }
-    
+
     return quant_node

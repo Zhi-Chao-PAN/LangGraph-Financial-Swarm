@@ -1,60 +1,122 @@
-from langchain_ollama import ChatOllama
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 import re
+from typing import List, Dict, Any, Callable
+from langchain_core.messages import AIMessage, SystemMessage, HumanMessage
+from src.utils.robustness import log_agent_action
 
-# Import Types and Prompts
-from src.core.types import AgentState
-from src.core.prompts import Prompts
+ROUTING_PROMPT = """You are a financial analysis supervisor. Route the user's question to the right specialist.
 
-from typing import List, Sequence, Callable, Dict, Any
-from src.core.constants import ROLE_FINISH
+Available agents:
+- Researcher: Retrieves financial data, answers factual questions, lookups, comparisons
+- Quant: Creates charts, visualizations, plots, graphs
+- FINISH: The question has been fully answered
 
-def create_supervisor_node(llm: ChatOllama, members: List[str]) -> Callable[[AgentState], Dict[str, Any]]:
+Rules:
+1. If the user asks for a chart, plot, graph, or visualization -> Quant
+2. If the user asks a factual/analytical financial question -> Researcher
+3. If an agent already provided a good answer -> FINISH
+4. Default to Researcher if unsure
+
+Respond with ONLY one word: Researcher, Quant, or FINISH"""
+
+
+def create_supervisor_node(llm, members: List[str]) -> Callable:
     """
-    Creates the Supervisor node function (Regex Augmented for Robustness).
-    
-    Args:
-        llm (ChatOllama): The local LLM instance.
-        members (List[str]): List of worker agent names.
-
-    Returns:
-        Callable[[AgentState], Dict[str, Any]]: The graph code for the supervisor.
+    Creates a Supervisor node with LLM-based routing + deterministic fallback.
     """
-    options = [ROLE_FINISH] + members
-    
-    # 构建 Prompt
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", Prompts.SUPERVISOR_SYSTEM),
-        MessagesPlaceholder(variable_name="messages"),
-        (
-            "system",
-            "Based on the conversation, who should act next? "
-            "Respond with 'Next: <Role>' where <Role> is one of {options}.",
-        ),
-    ]).partial(options=str(options))
 
-    # Regex parser with robust fallback
-    def parse_route(ai_message):
-        text = ai_message.content
-        # 0. Strip <think> blocks for reasoning models (DeepSeek-R1, etc.)
-        text_to_parse = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE)
-        
-        # Debug log for routing
-        from src.utils.robustness import log_agent_action
-        log_agent_action("Supervisor", "Thought", text_to_parse[:200].strip()) # Log truncated thought 
-        
-        # 1. Try strict regex on stripped content
-        match = re.search(r"Next:\s*(Researcher|Quant|FINISH)", text_to_parse, re.IGNORECASE)
-        if match:
-             return {"next": match.group(1).title() if match.group(1).upper() != "FINISH" else "FINISH"}
-        
-        # 2. Heuristic fallback
-        if "FINISH" in text.upper() and len(text) < 50:
-             return {"next": "FINISH"}
-        
-        # 3. Default safety net: If inconclusive, ask Researcher for more info
-        return {"next": "Researcher"}
+    def supervisor_node(state: Dict[str, Any]) -> Dict[str, Any]:
+        messages = state.get("messages", [])
 
-    supervisor_chain = prompt | llm | parse_route
+        # Check if any agent already responded with substantive content
+        has_agent_response = False
+        for msg in messages:
+            if isinstance(msg, AIMessage) and hasattr(msg, "content"):
+                content = msg.content
+                if ("Citations" in content or len(content) > 100) and "Error" not in content:
+                    has_agent_response = True
 
-    return supervisor_chain
+        if has_agent_response:
+            next_agent = "FINISH"
+            log_agent_action("Supervisor", "Route", f"Decision: {next_agent} (agent responded)")
+            return {"messages": [], "next": next_agent}
+
+        # Extract user question
+        user_question = ""
+        for msg in messages:
+            if isinstance(msg, tuple) and len(msg) == 2 and msg[0] == "user":
+                user_question = msg[1]
+                break
+            elif hasattr(msg, "type") and msg.type == "human":
+                user_question = msg.content
+                break
+
+        # Try LLM routing
+        next_agent = _llm_route(llm, user_question, members)
+        if next_agent is None:
+            next_agent = _keyword_route(user_question, members)
+
+        log_agent_action("Supervisor", "Route", f"Decision: {next_agent}")
+        return {"messages": [], "next": next_agent}
+
+    return supervisor_node
+
+
+def _llm_route(llm, question: str, members: List[str]) -> str | None:
+    """Try LLM-based routing. Returns None on failure."""
+    if not question:
+        return None
+    try:
+        response = llm.invoke([
+            SystemMessage(content=ROUTING_PROMPT),
+            HumanMessage(content=question),
+        ])
+        decision = _parse_routing(response.content, members)
+        return decision
+    except Exception as e:
+        log_agent_action("Supervisor", "LLM Route Failed", str(e)[:100])
+        return None
+
+
+def _keyword_route(question: str, members: List[str]) -> str:
+    """Deterministic keyword-based fallback routing."""
+    q = question.lower()
+    viz_keywords = ["chart", "plot", "graph", "visualiz", "draw", "diagram", "bar chart", "line chart"]
+    if any(kw in q for kw in viz_keywords):
+        return "Quant"
+    return "Researcher"
+
+
+def _parse_routing(content: str, members: List[str]) -> str:
+    """
+    Extract routing decision from LLM output.
+    Looks for 'Next: <Role>' pattern or standalone agent name.
+    Falls back to Researcher on ambiguity.
+    """
+    valid = set(members + ["FINISH"])
+
+    # Try "Next: <agent>" pattern
+    match = re.search(r"Next:\s*(\w+)", content, re.IGNORECASE)
+    if match:
+        candidate = match.group(1).strip()
+        for v in valid:
+            if candidate.lower() == v.lower():
+                return v
+
+    # Try standalone word match
+    clean = re.sub(r"<[^>]*>", "", content).strip()
+    for v in valid:
+        if v.lower() == clean.lower():
+            return v
+
+    # Try last word
+    words = clean.split()
+    if words:
+        last_word = words[-1].strip(".,;:!?\"'")
+        for v in valid:
+            if last_word.lower() == v.lower():
+                return v
+
+    # Fallback
+    if members:
+        return members[0]
+    return "FINISH"

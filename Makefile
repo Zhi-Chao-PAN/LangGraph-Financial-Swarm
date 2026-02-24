@@ -1,28 +1,29 @@
-.PHONY: setup test run check lint format docker-build clean
+.PHONY: install test lint eval check clean
 
-setup:
-	pip install -r requirements.txt
-	python check_env.py
-	pre-commit install
+install:
+	pip install .
+
+install-dev:
+	pip install .[dev]
 
 test:
-	pytest tests/
-
-run:
-	python main.py
-
-check:
-	python check_env.py
+	python -m pytest tests/ -v
 
 lint:
-	ruff check .
-	mypy .
+	ruff check src/ tests/
 
-format:
-	ruff check . --fix
+eval:
+	python eval/run_eval.py --mode both
 
-docker-build:
-	docker build -t financial-swarm .
+eval-swarm:
+	python eval/run_eval.py --mode swarm
+
+eval-baseline:
+	python eval/run_eval.py --mode baseline
+
+check:
+	python scripts/check_env.py
 
 clean:
-	rm -rf __pycache__ .pytest_cache .mypy_cache
+	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+	rm -rf .pytest_cache .ruff_cache output/ data/rag_cache/

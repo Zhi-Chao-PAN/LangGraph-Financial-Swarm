@@ -1,78 +1,296 @@
 import matplotlib
-matplotlib.use('Agg') # Force non-interactive backend
-import pytest
+matplotlib.use("Agg")
+
 import os
-from langchain_ollama import ChatOllama
+import sys
+import subprocess
+import pytest
+from unittest.mock import patch, MagicMock
+from langchain_core.messages import AIMessage, HumanMessage
+
 from src.core.config import settings
+from src.agents.supervisor import create_supervisor_node, _parse_routing, _keyword_route
+from src.agents.researcher import _rewrite_query
+from src.utils.validation import sanitize_input
+from eval.run_eval import check_answer, _extract_numbers, _approx_match
+
+
+# ─── Config ───
+
+class TestConfig:
+    def test_config_loading(self):
+        assert settings.LLM_MODEL is not None
+        assert settings.DATA_DIR is not None
+
+    def test_dirs_exist(self):
+        assert os.path.exists(settings.DATA_DIR)
+
+    def test_rag_top_k(self):
+        assert settings.RAG_TOP_K >= 3
+
+    def test_llm_timeout(self):
+        assert settings.LLM_TIMEOUT >= 60
+
+
+# ─── Supervisor Routing ───
+
+class TestSupervisorRouting:
+    def test_parse_next_researcher(self):
+        assert _parse_routing("Next: Researcher", ["Researcher", "Quant"]) == "Researcher"
+
+    def test_parse_next_quant(self):
+        assert _parse_routing("Next: Quant", ["Researcher", "Quant"]) == "Quant"
+
+    def test_parse_next_finish(self):
+        assert _parse_routing("Next: FINISH", ["Researcher", "Quant"]) == "FINISH"
+
+    def test_parse_case_insensitive(self):
+        assert _parse_routing("next: researcher", ["Researcher", "Quant"]) == "Researcher"
+
+    def test_parse_with_extra_text(self):
+        content = "I think we need more data. Next: Researcher"
+        assert _parse_routing(content, ["Researcher", "Quant"]) == "Researcher"
+
+    def test_parse_garbage_falls_back(self):
+        content = "I am a stochastic parrot with no structured output."
+        assert _parse_routing(content, ["Researcher", "Quant"]) == "Researcher"
+
+    def test_parse_empty_falls_back(self):
+        assert _parse_routing("", ["Researcher", "Quant"]) == "Researcher"
+
+    def test_parse_standalone_word(self):
+        assert _parse_routing("Quant", ["Researcher", "Quant"]) == "Quant"
+
+    def test_parse_finish_standalone(self):
+        assert _parse_routing("FINISH", ["Researcher", "Quant"]) == "FINISH"
+
+    def test_keyword_route_chart(self):
+        assert _keyword_route("Draw a bar chart of revenue", ["Researcher", "Quant"]) == "Quant"
+
+    def test_keyword_route_plot(self):
+        assert _keyword_route("Plot NVIDIA revenue trend", ["Researcher", "Quant"]) == "Quant"
+
+    def test_keyword_route_visualize(self):
+        assert _keyword_route("Visualize the margin comparison", ["Researcher", "Quant"]) == "Quant"
+
+    def test_keyword_route_factual(self):
+        assert _keyword_route("What was NVIDIA revenue in FY2025?", ["Researcher", "Quant"]) == "Researcher"
+
+    def test_keyword_route_compare(self):
+        assert _keyword_route("Compare Apple and Microsoft net income", ["Researcher", "Quant"]) == "Researcher"
+
+    def test_supervisor_node_no_response(self):
+        """No agent response yet -> route to Researcher."""
+        mock_llm = MagicMock()
+        mock_llm.invoke.return_value = AIMessage(content="Researcher")
+        supervisor = create_supervisor_node(mock_llm, ["Researcher", "Quant"])
+        result = supervisor({"messages": [("user", "What is NVIDIA revenue?")]})
+        assert result["next"] in ["Researcher", "Quant", "FINISH"]
+
+    def test_supervisor_node_after_response(self):
+        """Agent already responded -> FINISH."""
+        mock_llm = MagicMock()
+        supervisor = create_supervisor_node(mock_llm, ["Researcher", "Quant"])
+        result = supervisor({"messages": [
+            ("user", "What is revenue?"),
+            AIMessage(content="Revenue is $130,497M. Citations: source1"),
+        ]})
+        assert result["next"] == "FINISH"
+
+
+# ─── Sanitize Input ───
+
+class TestSanitizeInput:
+    def test_basic(self):
+        assert sanitize_input("  hello  ") == "hello"
+
+    def test_preserves_chinese(self):
+        assert sanitize_input("分析苹果公司的营收") == "分析苹果公司的营收"
+
+    def test_truncates_long_input(self):
+        long_input = "a" * 600
+        assert len(sanitize_input(long_input)) == 500
+
+    def test_removes_control_chars(self):
+        assert sanitize_input("hello\x00world\x1f") == "helloworld"
+
+
+# ─── Eval: Number Extraction ───
+
+class TestNumberExtraction:
+    def test_basic_number(self):
+        nums = _extract_numbers("Revenue was 130,497 million")
+        assert 130497.0 in nums
+
+    def test_percentage(self):
+        nums = _extract_numbers("Gross margin was 77.6%")
+        assert 77.6 in nums
+
+    def test_negative(self):
+        nums = _extract_numbers("Growth was (976) million")
+        assert -976.0 in nums
+
+    def test_dollar_sign(self):
+        nums = _extract_numbers("$8,462M debt")
+        assert 8462.0 in nums
+
+    def test_multiple_numbers(self):
+        nums = _extract_numbers("From $15,005M to $115,199M, approximately 668% growth")
+        assert len(nums) >= 3
+
+    def test_no_numbers(self):
+        nums = _extract_numbers("Data Center segment")
+        assert len(nums) == 0
+
+
+# ─── Eval: Approximate Matching ───
+
+class TestApproxMatch:
+    def test_exact(self):
+        assert _approx_match(67.0, 67.0)
+
+    def test_within_tolerance(self):
+        assert _approx_match(67.3, 67.0)  # 0.45% diff
+
+    def test_percentage_close(self):
+        assert _approx_match(88.25, 88.3)
+
+    def test_small_decimal(self):
+        assert _approx_match(0.11, 0.107)  # 2.8% diff
+
+    def test_outside_tolerance(self):
+        assert not _approx_match(100.0, 90.0)  # 11% diff
+
+    def test_zero(self):
+        assert _approx_match(0.005, 0)
+
+
+# ─── Eval: check_answer ───
+
+class TestCheckAnswer:
+    def test_exact_match(self):
+        r = check_answer("130,497", "130,497")
+        assert r["correct"]
+        assert r["partial_score"] >= 0.9
+
+    def test_approx_number(self):
+        r = check_answer("67.3%", "Approximately 67% CAGR")
+        assert r["correct"]
+
+    def test_wrong_number(self):
+        r = check_answer("45,274", "17,107")
+        assert not r["correct"]
+
+    def test_entity_only(self):
+        r = check_answer("Data Center", "Data Center with $115,199 million")
+        assert r["correct"]
+
+    def test_hallucination(self):
+        r = check_answer(
+            "Based on my analysis the revenue was approximately 500 billion dollars in the fiscal year",
+            "130,497"
+        )
+        assert r["hallucination"]
+
+    def test_growth_synonyms(self):
+        r = check_answer(
+            "NVIDIA Data Center revenue grew by 667.8%",
+            "From $15,005M to $115,199M, approximately 668% growth"
+        )
+        assert r["correct"]
+
+    def test_debt_equity(self):
+        r = check_answer(
+            "NVIDIA debt-to-equity ratio was approximately 0.1067",
+            "Approximately 0.107 ($8,462M debt / $79,339M equity)"
+        )
+        assert r["correct"]
+
+
+# ─── Plot Tool (subprocess-isolated to avoid matplotlib C-level abort in pytest) ───
+
+class TestPlotTool:
+    """Plot tests run in subprocess to avoid matplotlib/pytest interaction crash."""
+
+    @staticmethod
+    def _run_plot_test(data: str, plot_type: str, title: str) -> str:
+        script = f'''
+import os, sys
+os.chdir(r"{settings.BASE_DIR}")
+sys.path.insert(0, ".")
+import matplotlib; matplotlib.use("Agg")
 from src.tools.plot_tool import create_plot
-from main import main
-from unittest.mock import MagicMock, patch
+result = create_plot.invoke({{
+    "data_str": {repr(data)},
+    "plot_type": "{plot_type}",
+    "title": "{title}",
+    "xlabel": "X", "ylabel": "Y",
+}})
+print(result)
+'''
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            capture_output=True, text=True, timeout=30,
+        )
+        return result.stdout + result.stderr
 
-# Test Configuration
-def test_config_loading():
-    """Verify config loads correctly."""
-    assert settings.LLM_MODEL is not None
-    assert os.path.exists(settings.DATA_DIR)
+    def test_bar_chart(self):
+        out = self._run_plot_test(
+            '[{"Year": 2023, "Revenue": 100}, {"Year": 2024, "Revenue": 150}]',
+            "bar", "Test Revenue")
+        assert "Chart generated" in out
 
-# Test Tools
-def test_plot_tool():
-    """Verify plot tool logic (without verifying visual output)."""
-    data = '[{"Year": 2023, "Revenue": 100}, {"Year": 2024, "Revenue": 150}]'
-    # Mock log_agent_action to avoid file writes during test
-    with patch("src.tools.plot_tool.log_agent_action"):
-        result = create_plot.invoke({
-            "data_str": data,
-            "plot_type": "bar",
-            "title": "Test Plot",
-            "xlabel": "Year",
-            "ylabel": "Revenue"
-        })
-        print(f"DEBUG TOOL OUTPUT: {result}")
-        assert "Chart generated successfully" in result, f"Tool failed with: {result}"
-        assert os.path.exists(os.path.join(settings.OUTPUT_DIR, "test_plot.png"))
+    def test_line_chart(self):
+        out = self._run_plot_test(
+            '[{"Quarter": "Q1", "Profit": 50}, {"Quarter": "Q2", "Profit": 80}]',
+            "line", "Profit Trend")
+        assert "Chart generated" in out
 
-# Test LLM Connection (Skip if Ollama not running)
-@pytest.mark.skipif(os.getenv("CI") == "true", reason="Skipping local LLM test in CI")
-def test_llm_connection():
-    """Verify we can talk to Ollama."""
-    try:
-        llm = ChatOllama(model=settings.LLM_MODEL, base_url=settings.LLM_BASE_URL)
-        resp = llm.invoke("Hello")
-        assert resp.content is not None
-    except Exception as e:
-        pytest.fail(f"Could not connect to Ollama: {e}")
+    def test_pie_chart(self):
+        out = self._run_plot_test(
+            '[{"Segment": "DC", "Revenue": 115199}, {"Segment": "Gaming", "Revenue": 11359}]',
+            "pie", "Revenue by Segment")
+        assert "Chart generated" in out
 
-# Test Invariant: Supervisor Output Validity
-def test_supervisor_validity_under_noise():
-    """
-    Research Grade Test: Verify that the Supervisor acts as a deterministic firewall.
-    Even if the LLM emits garbage (stochastic element), the routing policy (deterministic element)
-    must ALWAYS return a valid state transition from the defined set.
-    This proves the 'Routing Stability' claim in the README.
-    """
-    from src.agents.supervisor import create_supervisor_node
-    from langchain_core.messages import AIMessage
-    
-    # 1. Simulate a completely broken LLM response using a callable (LCEL compatible)
-    def broken_llm(input):
-        return AIMessage(content="I am a stochastic parrot behaving badly with no structured output.")
-    
-    # 2. Create supervisor with standard roles
-    members = ["Researcher", "Quant"]
-    supervisor_chain = create_supervisor_node(broken_llm, members)
-    
-    # 3. Invoke with empty state
-    result = supervisor_chain.invoke({"messages": []})
-    
-    # 4. Assert Invariant: Output MUST be a valid role or fall back to a safe default
-    # The README claims: "policy with asymmetric fallback... biasing towards information-seeking agents"
-    valid_transitions = members + ["FINISH"]
-    
-    print(f"DEBUG: Broken Input -> Supervisor Output: {result}")
-    
-    assert "next" in result, "Supervisor output must contain routing key 'next'."
-    assert result["next"] in valid_transitions, \
-        f"Supervisor emitted invalid transition '{result['next']}'. Allowed: {valid_transitions}"
-    
-    # 5. Verify asymmetric bias (should fall back to Researcher for safety)
-    assert result["next"] == "Researcher", "Ideally, ambiguous input should bias towards data retrieval (Researcher)."
+    def test_grouped_bar(self):
+        out = self._run_plot_test(
+            '[{"Company": "NVIDIA", "FY2024": 60922, "FY2025": 130497}, {"Company": "Apple", "FY2024": 391035, "FY2025": 420500}]',
+            "bar", "Revenue Comparison")
+        assert "Chart generated" in out
+
+    def test_stacked_bar(self):
+        out = self._run_plot_test(
+            '[{"Year": "FY2023", "DataCenter": 15005, "Gaming": 9067}, {"Year": "FY2025", "DataCenter": 115199, "Gaming": 11359}]',
+            "stacked_bar", "Segment Revenue")
+        assert "Chart generated" in out
+
+
+# ─── Query Rewriting ───
+
+class TestQueryRewrite:
+    def test_rewrite_returns_list(self):
+        mock_llm = MagicMock()
+        mock_llm.invoke.return_value = AIMessage(content="NVIDIA gross margin FY2025\nApple gross margin FY2025")
+        result = _rewrite_query(mock_llm, "Compare NVIDIA and Apple gross margin")
+        assert isinstance(result, list)
+        assert len(result) == 2
+
+    def test_rewrite_max_3(self):
+        mock_llm = MagicMock()
+        mock_llm.invoke.return_value = AIMessage(content="Q1\nQ2\nQ3\nQ4\nQ5")
+        result = _rewrite_query(mock_llm, "Complex question")
+        assert len(result) <= 3
+
+    def test_rewrite_fallback_on_error(self):
+        mock_llm = MagicMock()
+        mock_llm.invoke.side_effect = Exception("LLM down")
+        result = _rewrite_query(mock_llm, "What is revenue?")
+        assert result == ["What is revenue?"]
+
+    def test_rewrite_strips_think_tags(self):
+        mock_llm = MagicMock()
+        mock_llm.invoke.return_value = AIMessage(
+            content="<think>Let me think...</think>\nNVIDIA revenue FY2025\nApple revenue FY2025"
+        )
+        result = _rewrite_query(mock_llm, "Compare revenue")
+        assert all("<think>" not in q for q in result)

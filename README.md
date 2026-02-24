@@ -1,96 +1,137 @@
-# LangGraph Financial Swarm: A Structure-Aware Multi-Agent System for Financial Analysis
+# LangGraph Financial Swarm
 
-![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
-![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)
-![Docker Ready](https://img.shields.io/badge/docker-ready-green.svg)
+A hierarchical multi-agent system for financial analysis, built with [LangGraph](https://github.com/langchain-ai/langgraph) and locally deployed LLMs via [Ollama](https://ollama.ai).
 
-## 0. Abstract
-In the domain of financial analysis, traditional Large Language Models (LLMs) often struggle with hallucination and lack of precision when handling quantitative data from complex, semi-structured documents (e.g., annual reports). This project introduces **LangGraph Financial Swarm**, a hierarchical multi-agent system designed to perform autonomous financial research and data visualization. By leveraging a **Structure-Aware Retrieval Augmented Generation (RAG)** mechanism and **Cyclic Graph Orchestration**, the system achieves higher accuracy in interpreting cross-page tables compared to standard RAG baselines. The architecture demonstrates how locally deployed quantized models (e.g., DeepSeek-R1) can effectively coordinate to solve multi-step reasoning tasks under compute-constrained environments.
+## Overview
 
-## 🧠 Why Hierarchical Swarm? (Theoretical Basis)
+Traditional single-agent RAG pipelines struggle with multi-step financial reasoning — they fragment tables, lose context across pages, and hallucinate numbers. This project addresses these issues with a **Supervisor-Worker** architecture where specialized agents collaborate through a cyclic graph.
 
-Traditional **Sequential Chain** architectures (e.g., Chain-of-Thought) suffer from *error propagation* and *context window exhaustion* when handling multi-dimensional financial tasks. This project adopts a **Hierarchical Swarm** topology (conceptually aligned with *Multi-Agent Debate* and *Society of Mind*), offering three key advantages:
+### Architecture
 
-1.  **Orchestration vs. Chaining**: Unlike rigid DAGs, the **Supervisor Agent** employs a *dynamic routing policy* based on the complexity of the query, allowing for non-linear execution paths (O(N) complexity reduced to O(1) for simple queries).
-2.  **Specialization & Isolation**: Financial data retrieval (Researcher) and visualization (Quant) operate in isolated scopes, preventing *context pollution* and ensuring that hallucinatory deviations in one domain do not corrupt the other.
-3.  **Grammar-Constrained Decoding**: Instead of relying on stochastic LLM outputs, tool calls are enforced via regex-based **Grammar-Constrained Decoding**, ensuring 100% syntactic validity for downstream execution.
+```
+User Query
+    |
+    v
++--------------+
+|  Supervisor   | <-- LLM Routing + Keyword Fallback
++------+-------+
+       | delegates
+       +------------------+
+       v                  v
++--------------+   +--------------+
+|  Researcher   |   |    Quant     |
+| Query Rewrite |   | Visualization|
+| + Multi-RAG   |   | bar/line/pie |
++------+-------+   +------+-------+
+       |                  |
+       +---> Supervisor <--+
+                |
+                v
+             FINISH
+```
 
-## 🏗️ System Architecture
+- **Supervisor**: LLM-based intent routing with keyword fallback.
+- **Researcher**: Query rewriting for complex questions, multi-query RAG with result synthesis.
+- **Quant**: Generates bar, line, pie, stacked bar, and grouped bar charts.
 
-![Architecture](https://mermaid.ink/img/pako:eNp1k09v2zAMxb_KoFMOsR0n7bBdh2G7DTgMxbDTEBRF4yw1sCVPdpqgyHffo_y38W_Qw0i-T3yP5KMc1ZwVqJb8u6NliZ2y5-hM8m-WnEuW8y_J1yUrzrm4L3jxcVnwD86eJPsr_yt5R2t4O_v-hV7v8AY_PqDnG_rFwR0NPOHg4R199fAAXz9Cj7e0OnjE7080OXiE5480_vGAfnzCy4-n4D3d0eLgCX9_wYsf_wcYwN4wOAYLBtdgcAsGjyAYBINBCAZvwWAFBv9gMA4G92BwAIObYPAFBiMY3ILBAQzegcEFDH6AwQkMfoHBCQz6wd6qJd9J_i75TvItf__h7O9F770yTfQ6VqYOrU6VadWqK9Oq06MytVVXpi3tqTLtad-V6UD7UZn2tI_KdKT9VKa3q65MRzqqMh3rqMp0ol1XppPtR2W60P6rTJfaj8p0pdtXphvtvzL9X7X_ynSn_QGmO-2NMt1rb5XpPnsLTPfaW2W6z94a03321pj-tbfG9J-9_wDsv8vW)
+### Key Features
 
-The system implements a **hub-and-spoke** topology where a central Supervisor delegates tasks to specialized worker agents.
+- **Local-first**: All inference via Ollama. No data leaves your environment.
+- **Structure-Aware RAG**: Documents chunked by section/table, each table is an independent retrieval unit.
+- **Query Rewriting**: Complex questions decomposed into sub-queries, retrieved independently, then synthesized.
+- **Multi-Company**: Financial data for NVIDIA, Apple, and Microsoft (FY2021-FY2025).
+- **Robust Evaluation**: 40-question benchmark with approximate number matching (5% tolerance), entity matching, and partial scoring.
 
-### Core Components
+## Evaluation Results
 
-*   **Supervisor (Orchestrator)**: Uses a **Deterministic Routing Policy** to analyze user intent and dispatch tasks.
-*   **Researcher (Data Node)**: Performs **Structure-Aware Retrieval** on financial documents.
-*   **Quant (Compute Node)**: Executes Python code for data analysis and visualization via a **Code Interpreter** environment.
-*   **Tool-Use Layer**: Implements **Grammar-Constrained Decoding** to map natural language to executable API calls.
+| Mode | Accuracy | Partial Score | Hallucination |
+|:---|---:|---:|---:|
+| Swarm (Multi-Agent RAG) | 100.0% (30/30) | 0.935 | 0.0% |
+| Baseline (Direct LLM) | 20.0% | 0.142 | 63.3% |
 
-The system utilizes a **Hierarchical Swarm** topology where a Supervisor Agent orchestrates specialized workers (Researcher and Quant). This design ensures separation of concerns and allows for modular scalability.
+By difficulty: Easy 13/13, Medium 8/8, Hard 9/9.
+By type: single_hop 13/13, comparison 8/8, calculation 6/6, multi_hop 3/3.
 
-## 2. Methodology
-
-### 2.1 Agentic Orchestration
-Unlike linear chains, this system employs a cyclic graph (Graph) managed by `LangGraph`. The **Supervisor Agent** utilizes a **Deterministic Routing Policy (DRP)** augmented with Chain-of-Thought (CoT) filtering to robustly guide the conversation flow. This ensures that the system can recover from errors and iterate on complex queries until a termination condition is met.
-
-### 2.2 Structure-Aware Retrieval
-Standard RAG pipelines often fragment inputs, destroying the semantic integrity of financial tables. We implement a **Structure-Aware Ingestion** pipeline (conceptualized via LlamaParse) that recursively parses document layouts, preserving the adjacency of table headers and cells.
-*   **Ingestion**: PDF -> Markdown (preserving layout) -> Chunking (preserving headers).
-*   **Retrieval**: Hybrid Search (Keywords + Semantic Dense Retrieval) to locate precise data points.
-
-### 2.3 Constraint-Aware Local Inference
-The system is optimized for **Local Compute Constraints**. By utilizing 4-bit quantized versions of reasoning models (e.g., `DeepSeek-R1-Distill`), we achieve high-fidelity reasoning on consumer-grade hardware (e.g., NVIDIA RTX 4060).
-
-## 3. Evaluation (Preliminary)
-
-We compared the Swarm architecture against a monolithic "Chat-with-PDF" baseline on a set of 50 financial queries requiring multi-hop reasoning (e.g., "Compare the operating margin of 2023 vs 2024").
-
-| Method | Accuracy (%) | Hallucination Rate (%) | Avg Latency (s) |
-| :--- | :---: | :---: | :---: |
-| Baseline (Standard RAG) | 62.0% | 18.5% | **4.2s** |
-| **Financial Swarm (Ours)** | **88.4%** | **4.2%** | 12.8s |
-
-*Note: The Swarm architecture trades latency for significantly improved precision and reasoning depth.*
-
-## 4. Quick Start
+## Quick Start
 
 ### Prerequisites
-*   Python 3.10+
-*   Docker (Optional, for safe execution)
-*   Ollama (running `deepseek-r1` or `llama3`)
+
+- Python 3.10+
+- [Ollama](https://ollama.ai) with a model (`ollama pull deepseek-r1:8b`)
 
 ### Installation
+
 ```bash
-# Clone the repository
 git clone https://github.com/Zhi-Chao-PAN/LangGraph-Financial-Swarm.git
 cd LangGraph-Financial-Swarm
-
-# Install dependencies (Single Source of Truth)
 pip install .
 ```
 
-### Usage
+### Configuration
+
+Copy `.env.example` to `.env`:
+
+```env
+LLM_MODEL=deepseek-r1:8b
+LLM_BASE_URL=http://localhost:11434
+EMBEDDING_MODEL=BAAI/bge-large-en-v1.5
+```
+
+### Run
+
 ```bash
-# Run the swarm
-python main.py --query "Analyze the revenue trend of Apple Inc. from 2020 to 2023."
+python main.py --query "What was NVIDIA's revenue in FY2025?"
+python main.py --query "Compare NVIDIA and Apple gross margin in FY2025"
 ```
 
-## 5. Security & Privacy
-*   **Containerized Isolation**: Code execution (plotting) is designed to run within sandbox environments.
-*   **Data Sovereignty**: All inference and RAG processes run locally. No data is sent to external APIs.
+### Evaluate
 
-## 6. Citation
-If you use this code in your research, please cite:
-```bibtex
-@software{langgraph_financial_swarm,
-  author = {Zhi-Chao Pan},
-  title = {LangGraph Financial Swarm: Heterogeneous Agent Orchestration},
-  year = {2026},
-  url = {https://github.com/Zhi-Chao-PAN/LangGraph-Financial-Swarm}
-}
+```bash
+python eval/run_eval.py --mode both
 ```
+
+## Project Structure
+
+```
+├── main.py                  # Entry point (single query + interactive mode)
+├── src/
+│   ├── agents/
+│   │   ├── supervisor.py    # LLM routing + keyword fallback
+│   │   ├── researcher.py    # Query rewriting + multi-RAG + retry
+│   │   └── chart_gen.py     # Visualization (6 chart types)
+│   ├── core/
+│   │   ├── config.py        # Pydantic settings
+│   │   ├── llm.py           # DirectOllamaChat (LangChain)
+│   │   ├── llm_index.py     # DirectOllamaLLM (LlamaIndex)
+│   │   └── types.py         # State definitions
+│   ├── tools/
+│   │   └── plot_tool.py     # matplotlib chart generation
+│   ├── utils/
+│   │   ├── robustness.py    # Retry, logging, backoff
+│   │   ├── validation.py    # Input sanitization, DataFrame validation
+│   │   ├── observability.py # Rich UI tracing
+│   │   └── parsing.py       # Robust JSON parsing
+│   ├── rag_adapter.py       # Structure-aware RAG (section/table chunking)
+│   └── data/ingest.py       # Document ingestion (PDF + Markdown + batch)
+├── data/parsed/             # NVIDIA + Apple + Microsoft financials
+├── eval/                    # 40-question benchmark + evaluation script
+├── tests/                   # 52 tests
+└── docs/                    # Architecture Decision Records
+```
+
+## Known Issues
+
+- **Ollama 0.15.x compatibility**: The `ollama` Python library 0.6.1 returns 502 errors with Ollama server 0.15.2. This project uses `DirectOllamaChat` and `DirectOllamaLLM` wrappers that call the REST API directly via `requests`. Upgrading Ollama to 0.17.0+ should resolve this.
+
+## Testing
+
+```bash
+pip install .[dev]
+python -m pytest tests/ -v
+```
+
+52 tests covering: config, supervisor routing, keyword routing, input sanitization, number extraction, approximate matching, answer checking, plot generation (bar/line/pie/stacked/grouped), and query rewriting.
 
 ## License
+
 MIT

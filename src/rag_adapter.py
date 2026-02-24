@@ -1,114 +1,219 @@
-# src/rag_adapter.py
 import os
+import re
 import asyncio
-from typing import Dict, Any, Optional
-from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, Settings
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-from llama_index.llms.ollama import Ollama
-from src.core.config import settings
-from src.utils.robustness import retry_with_backoff, log_agent_action
 import time
+from typing import Dict, Any, List
+
+from llama_index.core import VectorStoreIndex, Document
+from llama_index.core.node_parser import SentenceSplitter
+from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+from src.core.llm_index import DirectOllamaLLM
+from src.core.config import settings
+from src.utils.robustness import async_retry_with_backoff, log_agent_action
 import diskcache as dc
+
+
+def _parse_sections(text: str) -> List[Document]:
+    """
+    Parse financial markdown into structured chunks.
+    Each section (with its tables) becomes a separate Document with metadata.
+    """
+    sections = re.split(r'\n## ', text)
+    documents = []
+
+    # First section is the title/header
+    header = sections[0].strip() if sections else ""
+    header_line = header.split('\n')[0].replace('#', '').strip()
+
+    for i, section in enumerate(sections):
+        if i == 0:
+            # Title section - include as context
+            if section.strip():
+                documents.append(Document(
+                    text=section.strip(),
+                    metadata={"section": "header", "index": 0}
+                ))
+            continue
+
+        section_text = "## " + section
+        lines = section_text.split('\n')
+        section_title = lines[0].replace('##', '').strip()
+
+        # Find tables within this section
+        table_lines = []
+        non_table_lines = []
+        in_table = False
+
+        for line in lines[1:]:
+            if '|' in line and '--' not in line:
+                in_table = True
+                table_lines.append(line)
+            elif in_table and '|' not in line:
+                # End of table - create a chunk with header + table
+                if table_lines:
+                    table_text = f"## {section_title}\n\n" + '\n'.join(table_lines)
+                    documents.append(Document(
+                        text=table_text,
+                        metadata={
+                            "section": section_title,
+                            "type": "table",
+                            "index": len(documents),
+                        }
+                    ))
+                    table_lines = []
+                in_table = False
+                if line.strip():
+                    non_table_lines.append(line)
+            elif '---' in line:
+                continue
+            else:
+                if in_table:
+                    table_lines.append(line)
+                elif line.strip():
+                    non_table_lines.append(line)
+
+        # Flush remaining table
+        if table_lines:
+            table_text = f"## {section_title}\n\n" + '\n'.join(table_lines)
+            documents.append(Document(
+                text=table_text,
+                metadata={
+                    "section": section_title,
+                    "type": "table",
+                    "index": len(documents),
+                }
+            ))
+
+        # Non-table text
+        if non_table_lines:
+            nt_text = f"## {section_title}\n\n" + '\n'.join(non_table_lines)
+            documents.append(Document(
+                text=nt_text,
+                metadata={
+                    "section": section_title,
+                    "type": "text",
+                    "index": len(documents),
+                }
+            ))
+
+    log_agent_action("RAGAdapter", "Parse", f"Created {len(documents)} structured chunks")
+    return documents
+
 
 class RAGAdapter:
     """
-    Adapter for LlamaIndex RAG with persistent caching and non-blocking initialization.
+    Adapter for LlamaIndex RAG with structure-aware chunking and caching.
     """
+
     def __init__(self) -> None:
         self.cache = dc.Cache(settings.DATA_DIR / "rag_cache")
-        # 核心修改1: 初始化时不加载模型，移除副作用
-        self.index = None 
+        self.index = None
         self.query_engine = None
-        self._lock = asyncio.Lock() # 防止并发初始化竞争
+        self._lock = asyncio.Lock()
 
-    def _initialize_sync(self):
-        """同步的、重型的初始化逻辑 (将在线程池中运行)"""
-        log_agent_action("RAGAdapter", "Initialization", "Configuring Models & Loading Index...")
-        
-        # 显式创建模型实例，不修改全局 Settings
+    def _build_index(self):
+        """Build index with structure-aware chunking."""
+        log_agent_action("RAGAdapter", "Init", "Building structured index...")
+
         embed_model = HuggingFaceEmbedding(model_name=settings.EMBEDDING_MODEL)
-        llm = Ollama(model=settings.LLM_MODEL, base_url=settings.LLM_BASE_URL)
-        
-        # 加载数据
+        llm = DirectOllamaLLM(
+            model=settings.LLM_MODEL,
+            base_url=settings.LLM_BASE_URL,
+            temperature=settings.LLM_TEMPERATURE,
+            request_timeout=settings.LLM_TIMEOUT,
+        )
+
         data_path = settings.RAG_DATA_PATH
         if not os.path.exists(data_path):
-             raise FileNotFoundError(f"RAG data not found at {data_path}")
-        
-        documents = SimpleDirectoryReader(input_files=[data_path]).load_data()
-        
-        # 显式传入嵌入模型
-        return VectorStoreIndex.from_documents(documents, embed_model=embed_model)
+            raise FileNotFoundError(f"RAG data not found at {data_path}")
 
-    async def _ensure_initialized_async(self):
-        """
-        Asynchronously ensures the RAG engine is initialized.
-        
-        Thread-Safety:
-            Implements the "Double-Checked Locking" pattern using asyncio.Lock 
-            to prevents race conditions during concurrent initialization requests.
-            The heavy initialization logic is offloaded to a thread pool executor
-            to avoid blocking the main event loop.
-        """
+        with open(data_path, 'r', encoding='utf-8') as f:
+            raw_text = f.read()
+
+        # Structure-aware parsing
+        documents = _parse_sections(raw_text)
+
+        self.index = VectorStoreIndex.from_documents(
+            documents,
+            embed_model=embed_model,
+        )
+        self.query_engine = self.index.as_query_engine(
+            similarity_top_k=settings.RAG_TOP_K,
+            llm=llm,
+        )
+        return llm
+
+    def query(self, question: str) -> Dict[str, Any]:
+        """Synchronous query interface."""
+        cached = self.cache.get(question)
+        if cached:
+            return cached
+
+        if self.query_engine is None:
+            self._build_index()
+
+        response = self.query_engine.query(question)
+        result = self._format_result(response, question)
+        self.cache.set(question, result)
+        return result
+
+    async def _ensure_initialized(self):
+        """Lazy async initialization."""
         if self.query_engine is not None:
             return
-
-        async with self._lock: # 确保只有一个协程执行初始化
-            if self.query_engine is not None: # Double-check locking
+        async with self._lock:
+            if self.query_engine is not None:
                 return
-            
             loop = asyncio.get_running_loop()
-            # 核心修改3: 将重型初始化扔到线程池执行，彻底释放 Event Loop
-            self.index = await loop.run_in_executor(None, self._initialize_sync)
-            
-            # 显式传入 LLM 到查询引擎
-            llm = Ollama(model=settings.LLM_MODEL, base_url=settings.LLM_BASE_URL)
-            self.query_engine = self.index.as_query_engine(similarity_top_k=3, llm=llm)
+            await loop.run_in_executor(None, self._build_index)
 
     async def aquery(self, question: str) -> Dict[str, Any]:
+        """Async query with caching and retry."""
         loop = asyncio.get_running_loop()
-        
-        # 1. Cache Check (Non-blocking)
-        cached_result = await loop.run_in_executor(None, lambda: self.cache.get(question))
-        if cached_result:
-            log_agent_action("RAGAdapter", "Query (Cache Hit)", f"Q: {question}")
-            return cached_result
 
-        # 2. Lazy Load (Non-blocking!)
-        await self._ensure_initialized_async()
+        cached = await loop.run_in_executor(None, lambda: self.cache.get(question))
+        if cached:
+            log_agent_action("RAGAdapter", "Cache Hit", f"Q: {question}")
+            return cached
 
-        start_time = time.time()
+        await self._ensure_initialized()
 
-        # 3. Query
-        @retry_with_backoff(retries=3)
-        async def _execute_query():
+        @async_retry_with_backoff(retries=3)
+        async def _execute():
             return await self.query_engine.aquery(question)
 
         try:
-            response = await _execute_query()
-            
-            # Extract citations logic
-            sources = []
-            if hasattr(response, "source_nodes"):
-                for node in response.source_nodes:
-                    sources.append(f"Content: {node.node.get_content()[:100]}...")
-            citation_str = "\n".join([f"[Source {i+1}]: {s}" for i, s in enumerate(sources)])
-
-            result = {
-                "model_answer": str(response) + f"\n\n**Citations**:\n{citation_str}",
-                "source_nodes": [node.node.get_content() for node in response.source_nodes] if hasattr(response, "source_nodes") else [],
-                "latency_s": time.time() - start_time
-            }
-            
-            log_agent_action("RAGAdapter", "Query", f"Q: {question}")
-            
-            # Set Cache
+            start = time.time()
+            response = await _execute()
+            result = self._format_result(response, question, time.time() - start)
             await loop.run_in_executor(None, lambda: self.cache.set(question, result))
             return result
-            
         except Exception as e:
-            msg = f"RAG Engine Connection Failed: {e}"
+            msg = f"RAG query failed: {e}"
             log_agent_action("RAGAdapter", "Error", msg)
             return {"model_answer": f"Error: {msg}", "source_nodes": [], "latency_s": 0.0}
 
-# Singleton instance
+    @staticmethod
+    def _format_result(response, question: str, latency: float = 0.0) -> Dict[str, Any]:
+        sources = []
+        if hasattr(response, "source_nodes"):
+            for node in response.source_nodes:
+                section = node.node.metadata.get("section", "unknown")
+                content = node.node.get_content()[:150]
+                sources.append(f"[{section}]: {content}...")
+
+        citation_str = "\n".join([f"[Source {i+1}] {s}" for i, s in enumerate(sources)])
+
+        result = {
+            "model_answer": str(response) + f"\n\n**Citations**:\n{citation_str}",
+            "source_nodes": [
+                node.node.get_content()
+                for node in response.source_nodes
+            ] if hasattr(response, "source_nodes") else [],
+            "latency_s": latency,
+        }
+        log_agent_action("RAGAdapter", "Query", f"Q: {question}")
+        return result
+
+
 adapter = RAGAdapter()
