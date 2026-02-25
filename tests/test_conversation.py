@@ -122,6 +122,16 @@ class TestConversationManager:
         assert mgr.active_count == 2
         assert mgr.get(c1.id) is None  # evicted
 
+    def test_format_history(self):
+        conv = Conversation()
+        assert "No conversation history" in conv.format_history()
+        conv.add_turn("user", "What is NVIDIA revenue?")
+        conv.add_turn("assistant", "$130B")
+        hist = conv.format_history()
+        assert "2 turns" in hist
+        assert "Q1:" in hist
+        assert "A2:" in hist
+
     def test_get_nonexistent(self):
         mgr = ConversationManager()
         assert mgr.get("nonexistent") is None

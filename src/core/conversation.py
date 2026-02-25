@@ -61,6 +61,16 @@ class Conversation:
     def turn_count(self) -> int:
         return len(self.turns)
 
+    def format_history(self) -> str:
+        """Format full conversation history for /history command."""
+        if not self.turns:
+            return "No conversation history."
+        lines = [f"Conversation {self.id} ({self.turn_count} turns):"]
+        for i, t in enumerate(self.turns, 1):
+            prefix = "Q" if t.role == "user" else "A"
+            lines.append(f"  {prefix}{i}: {t.content[:200]}")
+        return "\n".join(lines)
+
 
 # Follow-up detection keywords/patterns
 _FOLLOWUP_INDICATORS = [
