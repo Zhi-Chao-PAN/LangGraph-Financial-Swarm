@@ -1,56 +1,80 @@
-# src/data/ingest.py
+"""
+Data ingestion pipeline for financial documents.
+Supports PDF (via PyMuPDF local parser or LlamaParse cloud) and Markdown.
+
+Usage:
+    python -m src.data.ingest --input data/raw/NVIDIA_10K.pdf --output data/financials.md
+    python -m src.data.ingest --input data/raw/ --output data/financials.md
+"""
+
 import argparse
 import os
 from pathlib import Path
 
 from src.core.config import settings
+from src.data.pdf_parser import parse_pdf
+from src.utils.robustness import log_agent_action
 
 
-def ingest_data(input_path: str, output_path: str):
+def ingest_data(input_path: str, output_path: str) -> bool:
     """
-    Ingest financial data for RAG. Supports PDF (via LlamaParse) and Markdown.
+    Ingest financial data for RAG. Supports PDF and Markdown.
+    PDF parsing uses local PyMuPDF by default; falls back to LlamaParse if API key set.
     """
-    print(f"Ingesting: {input_path} -> {output_path}")
+    log_agent_action("Ingest", "Start", f"{input_path} -> {output_path}")
 
     if not os.path.exists(input_path):
-        print(f"Error: {input_path} does not exist.")
+        log_agent_action("Ingest", "Error", f"{input_path} does not exist.")
         return False
 
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
 
-    api_key = settings.LLAMA_CLOUD_API_KEY
-
-    if api_key and input_path.lower().endswith(".pdf"):
-        return _ingest_pdf(input_path, output_path, api_key)
+    if input_path.lower().endswith(".pdf"):
+        return _ingest_pdf(input_path, output_path)
     if input_path.lower().endswith(".md"):
         return _ingest_markdown(input_path, output_path)
-    print(f"Unsupported format: {input_path}")
+
+    log_agent_action("Ingest", "Error", f"Unsupported format: {input_path}")
     return False
 
 
-def _ingest_pdf(input_path: str, output_path: str, api_key: str) -> bool:
-    """Ingest PDF via LlamaParse."""
+def _ingest_pdf(input_path: str, output_path: str) -> bool:
+    """Ingest PDF: local PyMuPDF first, LlamaParse as fallback."""
+    # Try local PyMuPDF parser first (no API key needed)
     try:
-        from llama_parse import LlamaParse
-
-        parser = LlamaParse(
-            api_key=api_key,
-            result_type="markdown",
-            verbose=True,
-            language="en",
-            num_workers=4,
-        )
-        documents = parser.load_data(input_path)
-
-        content = "\n\n".join(doc.text for doc in documents)
+        markdown = parse_pdf(input_path)
         with open(output_path, "w", encoding="utf-8") as f:
-            f.write(content)
-
-        print(f"PDF ingestion complete: {output_path}")
+            f.write(markdown)
+        log_agent_action("Ingest", "Done", f"PDF (local): {len(markdown)} chars -> {output_path}")
         return True
     except Exception as e:
-        print(f"LlamaParse failed: {e}")
-        return False
+        log_agent_action("Ingest", "Warning", f"Local PDF parse failed: {e}")
+
+    # Fallback to LlamaParse if API key available
+    api_key = settings.LLAMA_CLOUD_API_KEY
+    if api_key:
+        try:
+            from llama_parse import LlamaParse
+
+            parser = LlamaParse(
+                api_key=api_key,
+                result_type="markdown",
+                verbose=True,
+                language="en",
+                num_workers=4,
+            )
+            documents = parser.load_data(input_path)
+            content = "\n\n".join(doc.text for doc in documents)
+            with open(output_path, "w", encoding="utf-8") as f:
+                f.write(content)
+            log_agent_action("Ingest", "Done", f"PDF (LlamaParse): {output_path}")
+            return True
+        except Exception as e:
+            log_agent_action("Ingest", "Error", f"LlamaParse failed: {e}")
+            return False
+
+    log_agent_action("Ingest", "Error", "PDF parsing failed and no LlamaParse API key")
+    return False
 
 
 def _ingest_markdown(input_path: str, output_path: str) -> bool:
@@ -60,34 +84,44 @@ def _ingest_markdown(input_path: str, output_path: str) -> bool:
             content = f.read()
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(content)
-        print(f"Markdown ingestion complete: {output_path}")
+        log_agent_action("Ingest", "Done", f"Markdown: {len(content)} chars -> {output_path}")
         return True
     except Exception as e:
-        print(f"Ingestion failed: {e}")
+        log_agent_action("Ingest", "Error", f"Ingestion failed: {e}")
         return False
 
 
-def ingest_directory(input_dir: str, output_path: str):
+def ingest_directory(input_dir: str, output_path: str) -> bool:
     """Ingest all supported files from a directory into a single output."""
-    input_dir = Path(input_dir)
-    files = sorted(input_dir.glob("*.md")) + sorted(input_dir.glob("*.pdf"))
+    input_dir_path = Path(input_dir)
+    md_files = sorted(input_dir_path.glob("*.md"))
+    pdf_files = sorted(input_dir_path.glob("*.pdf"))
 
-    if not files:
-        print(f"No supported files in {input_dir}")
+    if not md_files and not pdf_files:
+        log_agent_action("Ingest", "Error", f"No supported files in {input_dir}")
         return False
 
     combined = []
-    for f in files:
-        print(f"  Processing: {f.name}")
-        if f.suffix == ".md":
-            combined.append(f.read_text(encoding="utf-8"))
-        # PDF would need LlamaParse, skip in batch mode
 
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    # Process markdown files
+    for f in md_files:
+        log_agent_action("Ingest", "Process", f.name)
+        combined.append(f.read_text(encoding="utf-8"))
+
+    # Process PDF files with local parser
+    for f in pdf_files:
+        log_agent_action("Ingest", "Process", f"{f.name} (PDF)")
+        try:
+            md = parse_pdf(f)
+            combined.append(md)
+        except Exception as e:
+            log_agent_action("Ingest", "Warning", f"Skipped {f.name}: {e}")
+
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as out:
         out.write("\n\n---\n\n".join(combined))
 
-    print(f"Batch ingestion complete: {len(combined)} files -> {output_path}")
+    log_agent_action("Ingest", "Done", f"Batch: {len(combined)} files -> {output_path}")
     return True
 
 
