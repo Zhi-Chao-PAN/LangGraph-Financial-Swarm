@@ -1,13 +1,13 @@
 from pathlib import Path
 
-from pydantic import ConfigDict, Field
-from pydantic_settings import BaseSettings
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     """Typed configuration management using Pydantic."""
 
-    model_config = ConfigDict(
+    model_config = SettingsConfigDict(
         case_sensitive=True,
         env_file=".env",
         extra="ignore",
@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     # Optional Keys
     LLAMA_CLOUD_API_KEY: str | None = None
 
-    def ensure_dirs(self):
+    def ensure_dirs(self) -> None:
         self.DATA_DIR.mkdir(parents=True, exist_ok=True)
         self.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 

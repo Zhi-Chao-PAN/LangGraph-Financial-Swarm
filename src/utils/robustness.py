@@ -18,12 +18,12 @@ logger.addHandler(handler)
 logger.addHandler(logging.StreamHandler())
 
 
-def retry_with_backoff(retries: int = 3, backoff_in_seconds: int = 1):
+def retry_with_backoff(retries: int = 3, backoff_in_seconds: int = 1) -> Callable:
     """Decorator to retry a sync function with exponential backoff."""
 
-    def decorator(func: Callable):
+    def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             for attempt in range(retries + 1):
                 try:
                     return func(*args, **kwargs)
@@ -41,12 +41,12 @@ def retry_with_backoff(retries: int = 3, backoff_in_seconds: int = 1):
     return decorator
 
 
-def async_retry_with_backoff(retries: int = 3, backoff_in_seconds: int = 1):
+def async_retry_with_backoff(retries: int = 3, backoff_in_seconds: int = 1) -> Callable:
     """Decorator to retry an async function with exponential backoff."""
 
-    def decorator(func: Callable):
+    def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
-        async def wrapper(*args, **kwargs):
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
             for attempt in range(retries + 1):
                 try:
                     return await func(*args, **kwargs)
@@ -64,7 +64,7 @@ def async_retry_with_backoff(retries: int = 3, backoff_in_seconds: int = 1):
     return decorator
 
 
-def log_agent_action(agent_name: str, action: str, content: Any, level: str = "info"):
+def log_agent_action(agent_name: str, action: str, content: Any, level: str = "info") -> None:
     """
     Log significant agent actions for audit trails.
 

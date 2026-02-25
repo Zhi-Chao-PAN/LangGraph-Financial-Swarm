@@ -2,6 +2,7 @@ import functools
 import json
 import re
 from collections.abc import Callable
+from typing import Any
 
 import pandas as pd
 
@@ -13,7 +14,7 @@ def validate_dataframe(func: Callable) -> Callable:
     """
 
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
         data_str = kwargs.get("data_str")
         if not data_str and len(args) > 0:
             data_str = args[0]
