@@ -82,3 +82,46 @@ def log_agent_action(agent_name: str, action: str, content: Any, level: str = "i
     msg = json.dumps(entry)
     log_fn = getattr(logger, level, logger.info)
     log_fn(msg)
+
+
+def check_ollama_health(base_url: str | None = None, timeout: int = 5) -> dict[str, Any]:
+    """
+    Check if Ollama service is reachable and has models loaded.
+
+    Returns:
+        {"healthy": bool, "models": list[str], "error": str | None}
+    """
+    import requests
+
+    url = base_url or settings.LLM_BASE_URL
+
+    try:
+        # Check service is up
+        resp = requests.get(f"{url}/api/tags", timeout=timeout)
+        if resp.status_code != 200:
+            return {"healthy": False, "models": [], "error": f"HTTP {resp.status_code}"}
+
+        data = resp.json()
+        models = [m.get("name", "") for m in data.get("models", [])]
+        log_agent_action("Health", "Ollama", f"OK, {len(models)} models: {models}")
+        return {"healthy": True, "models": models, "error": None}
+    except requests.ConnectionError:
+        msg = f"Ollama not reachable at {url}"
+        log_agent_action("Health", "Ollama", msg, level="error")
+        return {"healthy": False, "models": [], "error": msg}
+    except Exception as e:
+        msg = f"Health check failed: {e}"
+        log_agent_action("Health", "Ollama", msg, level="error")
+        return {"healthy": False, "models": [], "error": msg}
+
+
+def graceful_llm_call(llm, messages: list, fallback: str = "LLM unavailable. Please try again later.") -> str:
+    """
+    Call LLM with graceful degradation. Returns fallback message on failure.
+    """
+    try:
+        response = llm.invoke(messages)
+        return response.content if hasattr(response, "content") else str(response)
+    except Exception as e:
+        log_agent_action("Graceful", "LLM Fallback", str(e)[:200], level="warning")
+        return fallback

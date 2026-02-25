@@ -49,3 +49,53 @@ class TestSanitizeRagQuery:
     def test_unicode_preserved(self):
         result = sanitize_rag_query("NVIDIA FY2025 收入是多少？")
         assert "收入" in result
+
+
+class TestOllamaHealth:
+    def test_health_check_unreachable(self):
+        from src.utils.robustness import check_ollama_health
+
+        result = check_ollama_health(base_url="http://localhost:99999", timeout=1)
+        assert not result["healthy"]
+        assert result["error"] is not None
+        assert result["models"] == []
+
+    def test_health_check_bad_url(self):
+        from src.utils.robustness import check_ollama_health
+
+        result = check_ollama_health(base_url="http://192.0.2.1:11434", timeout=1)
+        assert not result["healthy"]
+
+
+class TestGracefulLLM:
+    def test_fallback_on_error(self):
+        from unittest.mock import MagicMock
+
+        from src.utils.robustness import graceful_llm_call
+
+        mock_llm = MagicMock()
+        mock_llm.invoke.side_effect = ConnectionError("Ollama down")
+        result = graceful_llm_call(mock_llm, [], fallback="Service unavailable")
+        assert result == "Service unavailable"
+
+    def test_success(self):
+        from unittest.mock import MagicMock
+
+        from src.utils.robustness import graceful_llm_call
+
+        mock_llm = MagicMock()
+        mock_response = MagicMock()
+        mock_response.content = "NVIDIA revenue was $130,497M"
+        mock_llm.invoke.return_value = mock_response
+        result = graceful_llm_call(mock_llm, [])
+        assert "130,497" in result
+
+    def test_fallback_on_timeout(self):
+        from unittest.mock import MagicMock
+
+        from src.utils.robustness import graceful_llm_call
+
+        mock_llm = MagicMock()
+        mock_llm.invoke.side_effect = TimeoutError("Request timed out")
+        result = graceful_llm_call(mock_llm, [])
+        assert "unavailable" in result.lower()
