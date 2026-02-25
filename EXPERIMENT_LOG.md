@@ -33,6 +33,22 @@
 4. **single_hop and calculation are robust** — unaffected by multi-query/rewrite ablation, always 100%
 5. **Naive chunking hurts even simple questions** — single_hop drops from 18/18 to 16/18 with SentenceSplitter
 
+## Code Quality & Infrastructure (2025-02-26)
+
+| Task | Status | Details |
+|---|---|---|
+| Ruff lint | 0 errors | 148 issues fixed (auto + manual), line-length 150 |
+| mypy type check | 0 errors | config.py, robustness.py, validation.py typed |
+| Tests | 81 passing | +11 PDF parser, +18 conversation memory |
+| Pre-commit | Configured | ruff + format + trailing whitespace + large file check |
+| Structured logging | Done | log_agent_action supports info/warning/error levels |
+| Supervisor guard | Done | max_rounds=10 prevents infinite loops |
+| Cache TTL | Done | RAG cache expires after 24h |
+| Input validation | Done | Query truncated at 1000 chars |
+| LaTeX tables | 3 generated | ablation_main.tex, ablation_difficulty.tex, ablation_qtype.tex |
+| PDF E2E test | Passed | Apple 213K chars/199 tables, Microsoft 345K chars/6 tables |
+| Conversation memory | v0.7.0 | Follow-up detection, context injection, ConversationManager |
+
 ## Environment
 
 - Hardware: ASUS Laptop, Intel Ultra 9 185H + RTX 4060 Laptop (8GB VRAM) + 40GB RAM
