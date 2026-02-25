@@ -71,22 +71,28 @@ def _build_sub_queries(question: str) -> List[str]:
     if len(companies) < 2:
         return [question]
 
-    # Extract the metric being asked about
-    q_lower = question.lower()
-
-    # Remove company names and comparison words to get the core metric
-    core = q_lower
+    # Extract the metric being asked about by removing company names only (whole words)
+    core = question
     for c in companies:
-        core = core.replace(c, "").replace(c.capitalize(), "")
-    for word in ["compare", "vs", "versus", "between", "which", "had", "the",
-                 "highest", "lowest", "and", "'s", "'s", "in", "company"]:
-        core = core.replace(word, " ")
-    core = " ".join(core.split()).strip().strip("?.,")
+        # Remove company name as whole word (case-insensitive)
+        core = re.sub(rf'\b{re.escape(c)}\b', '', core, flags=re.IGNORECASE)
+        # Also remove possessive forms
+        core = re.sub(rf"\b{re.escape(c)}'s\b", '', core, flags=re.IGNORECASE)
 
-    # Generate one query per company
-    sub_queries = [f"{c.upper()} {core}" for c in companies]
+    # Remove comparison words but preserve financial terms
+    for word in ["compare", "vs", "versus", "between", "which", "had the",
+                 "highest", "lowest", "or"]:
+        core = re.sub(rf'\b{re.escape(word)}\b', '', core, flags=re.IGNORECASE)
 
-    # Also keep original question as fallback
+    core = " ".join(core.split()).strip().strip("?.,:")
+
+    # Generate one query per company with the core metric
+    sub_queries = []
+    for c in companies:
+        if core:
+            sub_queries.append(f"{c.upper()} {core}")
+
+    # Always keep original question as fallback
     sub_queries.append(question)
 
     return sub_queries

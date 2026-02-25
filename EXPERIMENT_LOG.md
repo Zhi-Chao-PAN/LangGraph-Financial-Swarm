@@ -9,6 +9,7 @@
 | no_multiquery | 2025-02-25 | deepseek-r1:8b | top_k=5, structured chunking, query rewrite, NO multi-query | 87.5% (35/40) | 0.839 | 2.5% | 13.9s | RTX 4060 Laptop | Biggest drop — comparison type 8/13, 1 hallucination |
 | no_structured | 2025-02-25 | deepseek-r1:8b | top_k=5, SentenceSplitter chunking, query rewrite, multi-query | 92.5% (37/40) | 0.848 | 5.0% | 80.7s | RTX 4060 Laptop | Naive chunking: single_hop 16/18, hallucination 5%, latency 4.5x |
 | v0.6.0 (improved) | 2025-02-25 | deepseek-r1:8b | top_k=5, structured chunking, deterministic multi-query, retrieval verification | 100% (40/40) | 0.942 | 0% | 32.8s | RTX 4060 Laptop | Replaced LLM rewrite with deterministic decomposition + coverage check |
+| v0.6.0 (60Q) | 2025-02-25 | deepseek-r1:8b | top_k=5, structured chunking, deterministic multi-query, retrieval verification | 100% (60/60) | 0.900 | 0% | ~35s | RTX 4060 Laptop | Expanded benchmark: 20 new hard questions, all correct |
 
 ## Phase 3 Results (Baseline)
 
