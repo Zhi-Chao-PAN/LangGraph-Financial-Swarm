@@ -4,6 +4,7 @@ from typing import Any
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
+from src.core.conversation import Conversation, is_followup, resolve_followup
 from src.core.types import AgentState
 from src.utils.robustness import log_agent_action
 
@@ -114,10 +115,10 @@ def _verify_coverage(question: str, answer: str) -> list[str]:
     return missing
 
 
-def create_researcher_node(llm) -> Callable[[AgentState], dict[str, Any]]:
+def create_researcher_node(llm, conversation: Conversation | None = None) -> Callable[[AgentState], dict[str, Any]]:
     """
-    Creates the Researcher node with deterministic multi-query
-    and retrieval verification.
+    Creates the Researcher node with deterministic multi-query,
+    retrieval verification, and optional conversation context.
     """
 
     def researcher_node(state: AgentState) -> dict[str, Any]:
@@ -143,6 +144,12 @@ def create_researcher_node(llm) -> Callable[[AgentState], dict[str, Any]]:
         if len(user_question) > 1000:
             user_question = user_question[:1000]
             log_agent_action("Researcher", "Truncate", "Query truncated to 1000 chars")
+
+        # Resolve follow-up questions using conversation context
+        if conversation and is_followup(user_question, conversation):
+            original = user_question
+            user_question = resolve_followup(user_question, conversation)
+            log_agent_action("Researcher", "Follow-up", f"Resolved: '{original}' → enriched with context")
 
         from src.rag_adapter import adapter
 
