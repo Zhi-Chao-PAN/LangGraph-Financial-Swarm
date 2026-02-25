@@ -1,6 +1,9 @@
 import re
-from typing import List, Dict, Any, Callable
-from langchain_core.messages import AIMessage, SystemMessage, HumanMessage
+from collections.abc import Callable
+from typing import Any
+
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+
 from src.utils.robustness import log_agent_action
 
 ROUTING_PROMPT = """You are a financial analysis supervisor. Route the user's question to the right specialist.
@@ -19,12 +22,12 @@ Rules:
 Respond with ONLY one word: Researcher, Quant, or FINISH"""
 
 
-def create_supervisor_node(llm, members: List[str]) -> Callable:
+def create_supervisor_node(llm, members: list[str]) -> Callable:
     """
     Creates a Supervisor node with LLM-based routing + deterministic fallback.
     """
 
-    def supervisor_node(state: Dict[str, Any]) -> Dict[str, Any]:
+    def supervisor_node(state: dict[str, Any]) -> dict[str, Any]:
         messages = state.get("messages", [])
 
         # Check if any agent already responded with substantive content
@@ -56,7 +59,7 @@ def create_supervisor_node(llm, members: List[str]) -> Callable:
             if isinstance(msg, tuple) and len(msg) == 2 and msg[0] == "user":
                 user_question = msg[1]
                 break
-            elif hasattr(msg, "type") and msg.type == "human":
+            if hasattr(msg, "type") and msg.type == "human":
                 user_question = msg.content
                 break
 
@@ -71,7 +74,7 @@ def create_supervisor_node(llm, members: List[str]) -> Callable:
     return supervisor_node
 
 
-def _llm_route(llm, question: str, members: List[str]) -> str | None:
+def _llm_route(llm, question: str, members: list[str]) -> str | None:
     """Try LLM-based routing. Returns None on failure."""
     if not question:
         return None
@@ -80,14 +83,13 @@ def _llm_route(llm, question: str, members: List[str]) -> str | None:
             SystemMessage(content=ROUTING_PROMPT),
             HumanMessage(content=question),
         ])
-        decision = _parse_routing(response.content, members)
-        return decision
+        return _parse_routing(response.content, members)
     except Exception as e:
         log_agent_action("Supervisor", "LLM Route Failed", str(e)[:100])
         return None
 
 
-def _keyword_route(question: str, members: List[str]) -> str:
+def _keyword_route(question: str, members: list[str]) -> str:
     """Deterministic keyword-based fallback routing."""
     q = question.lower()
     viz_keywords = ["chart", "plot", "graph", "visualiz", "draw", "diagram", "bar chart", "line chart"]
@@ -96,7 +98,7 @@ def _keyword_route(question: str, members: List[str]) -> str:
     return "Researcher"
 
 
-def _parse_routing(content: str, members: List[str]) -> str:
+def _parse_routing(content: str, members: list[str]) -> str:
     """
     Extract routing decision from LLM output.
     Looks for 'Next: <Role>' pattern or standalone agent name.

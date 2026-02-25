@@ -1,7 +1,10 @@
-import re
 import json
-from typing import Dict, Any, Callable
+import re
+from collections.abc import Callable
+from typing import Any
+
 from langchain_core.messages import AIMessage, SystemMessage
+
 from src.core.types import AgentState
 from src.utils.robustness import log_agent_action
 
@@ -24,13 +27,13 @@ Rules:
 - Include actual numbers from the context, not placeholders"""
 
 
-def create_quant_node(llm) -> Callable[[AgentState], Dict[str, Any]]:
+def create_quant_node(llm) -> Callable[[AgentState], dict[str, Any]]:
     """
     Creates the Quant node for financial data visualization.
     Supports bar, line, pie, and stacked_bar charts.
     """
 
-    def quant_node(state: AgentState) -> Dict[str, Any]:
+    def quant_node(state: AgentState) -> dict[str, Any]:
         messages = state.get("messages", [])
 
         # Gather context from recent messages
@@ -46,7 +49,7 @@ def create_quant_node(llm) -> Callable[[AgentState], Dict[str, Any]]:
             if isinstance(msg, tuple) and len(msg) == 2 and msg[0] == "user":
                 user_question = msg[1]
                 break
-            elif hasattr(msg, "type") and msg.type == "human":
+            if hasattr(msg, "type") and msg.type == "human":
                 user_question = msg.content
                 break
 

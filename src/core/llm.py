@@ -3,12 +3,11 @@ Drop-in replacement for ChatOllama that uses requests directly.
 Workaround for ollama Python client 502 bug with older Ollama versions.
 """
 
+
 import requests
-from typing import Any, List, Optional
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import BaseMessage, AIMessage, HumanMessage, SystemMessage
-from langchain_core.outputs import ChatResult, ChatGeneration
-from pydantic import Field
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
+from langchain_core.outputs import ChatGeneration, ChatResult
 
 
 class DirectOllamaChat(BaseChatModel):
@@ -23,7 +22,7 @@ class DirectOllamaChat(BaseChatModel):
     def _llm_type(self) -> str:
         return "direct-ollama"
 
-    def _convert_messages(self, messages: List[BaseMessage]) -> List[dict]:
+    def _convert_messages(self, messages: list[BaseMessage]) -> list[dict]:
         result = []
         for msg in messages:
             if isinstance(msg, SystemMessage):
@@ -38,7 +37,7 @@ class DirectOllamaChat(BaseChatModel):
                 result.append({"role": "user", "content": str(msg.content)})
         return result
 
-    def _generate(self, messages: List[BaseMessage], stop: Optional[List[str]] = None, **kwargs) -> ChatResult:
+    def _generate(self, messages: list[BaseMessage], stop: list[str] | None = None, **kwargs) -> ChatResult:
         payload = {
             "model": self.model,
             "messages": self._convert_messages(messages),

@@ -1,7 +1,8 @@
 # src/data/ingest.py
-import os
 import argparse
+import os
 from pathlib import Path
+
 from src.core.config import settings
 
 
@@ -21,11 +22,10 @@ def ingest_data(input_path: str, output_path: str):
 
     if api_key and input_path.lower().endswith(".pdf"):
         return _ingest_pdf(input_path, output_path, api_key)
-    elif input_path.lower().endswith(".md"):
+    if input_path.lower().endswith(".md"):
         return _ingest_markdown(input_path, output_path)
-    else:
-        print(f"Unsupported format: {input_path}")
-        return False
+    print(f"Unsupported format: {input_path}")
+    return False
 
 
 def _ingest_pdf(input_path: str, output_path: str, api_key: str) -> bool:
@@ -56,7 +56,7 @@ def _ingest_pdf(input_path: str, output_path: str, api_key: str) -> bool:
 def _ingest_markdown(input_path: str, output_path: str) -> bool:
     """Copy markdown file to output path."""
     try:
-        with open(input_path, "r", encoding="utf-8") as f:
+        with open(input_path, encoding="utf-8") as f:
             content = f.read()
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(content)

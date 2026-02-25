@@ -18,18 +18,18 @@ Usage:
 import argparse
 import asyncio
 import json
-import os
 import re
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import List, Dict, Any, Callable
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from rich.console import Console
-from rich.table import Table
 from rich.progress import track
+from rich.table import Table
 
 from src.core.config import settings
 from src.core.llm import DirectOllamaChat
@@ -41,7 +41,7 @@ RESULTS_DIR = Path(__file__).parent / "results" / "ablation"
 
 
 def load_benchmark():
-    with open(BENCHMARK_PATH, "r", encoding="utf-8") as f:
+    with open(BENCHMARK_PATH, encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -159,9 +159,10 @@ class NaiveRAGAdapter:
         self.query_engine = None
 
     def _build_index(self):
-        from llama_index.core import VectorStoreIndex, Document
+        from llama_index.core import Document, VectorStoreIndex
         from llama_index.core.node_parser import SentenceSplitter
         from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+
         from src.core.llm_index import DirectOllamaLLM
         from src.utils.robustness import log_agent_action
 
@@ -176,7 +177,7 @@ class NaiveRAGAdapter:
         )
 
         data_path = settings.RAG_DATA_PATH
-        with open(data_path, 'r', encoding='utf-8') as f:
+        with open(data_path, encoding='utf-8') as f:
             raw_text = f.read()
 
         # Naive: just split by sentences, no structure awareness
@@ -193,7 +194,7 @@ class NaiveRAGAdapter:
             llm=llm,
         )
 
-    def query(self, question: str) -> Dict[str, Any]:
+    def query(self, question: str) -> dict[str, Any]:
         if self.query_engine is None:
             self._build_index()
         response = self.query_engine.query(question)
@@ -213,16 +214,17 @@ class NaiveRAGAdapter:
 def create_researcher_no_rewrite(llm) -> Callable:
     """Researcher without query rewriting — always uses original question."""
     from langchain_core.messages import AIMessage
+
     from src.utils.robustness import log_agent_action
 
-    def researcher_node(state) -> Dict[str, Any]:
+    def researcher_node(state) -> dict[str, Any]:
         messages = state.get("messages", [])
         user_question = ""
         for msg in messages:
             if isinstance(msg, tuple) and len(msg) == 2 and msg[0] == "user":
                 user_question = msg[1]
                 break
-            elif hasattr(msg, "type") and msg.type == "human":
+            if hasattr(msg, "type") and msg.type == "human":
                 user_question = msg.content
                 break
         if not user_question:
@@ -246,18 +248,19 @@ def create_researcher_no_rewrite(llm) -> Callable:
 
 def create_researcher_no_multiquery(llm) -> Callable:
     """Researcher with rewriting but no multi-query synthesis — uses only first sub-query."""
-    from langchain_core.messages import AIMessage, SystemMessage, HumanMessage
-    from src.agents.researcher import _rewrite_query, REWRITE_PROMPT
+    from langchain_core.messages import AIMessage
+
+    from src.agents.researcher import _rewrite_query
     from src.utils.robustness import log_agent_action
 
-    def researcher_node(state) -> Dict[str, Any]:
+    def researcher_node(state) -> dict[str, Any]:
         messages = state.get("messages", [])
         user_question = ""
         for msg in messages:
             if isinstance(msg, tuple) and len(msg) == 2 and msg[0] == "user":
                 user_question = msg[1]
                 break
-            elif hasattr(msg, "type") and msg.type == "human":
+            if hasattr(msg, "type") and msg.type == "human":
                 user_question = msg.content
                 break
         if not user_question:
@@ -293,19 +296,20 @@ def create_researcher_no_multiquery(llm) -> Callable:
 def create_researcher_no_structured(llm) -> Callable:
     """Researcher using naive RAG (no structured chunking), with full rewrite+multiquery."""
     from langchain_core.messages import AIMessage, SystemMessage
+
     from src.agents.researcher import _rewrite_query
     from src.utils.robustness import log_agent_action
 
     naive_adapter = NaiveRAGAdapter()
 
-    def researcher_node(state) -> Dict[str, Any]:
+    def researcher_node(state) -> dict[str, Any]:
         messages = state.get("messages", [])
         user_question = ""
         for msg in messages:
             if isinstance(msg, tuple) and len(msg) == 2 and msg[0] == "user":
                 user_question = msg[1]
                 break
-            elif hasattr(msg, "type") and msg.type == "human":
+            if hasattr(msg, "type") and msg.type == "human":
                 user_question = msg.content
                 break
         if not user_question:
@@ -332,7 +336,7 @@ def create_researcher_no_structured(llm) -> Callable:
 
         if len(sub_queries) > 1 and len(all_answers) > 1:
             combined = "\n\n".join(
-                f"[Sub-query: {sq}]\n{ans}" for sq, ans in zip(sub_queries, all_answers)
+                f"[Sub-query: {sq}]\n{ans}" for sq, ans in zip(sub_queries, all_answers, strict=False)
             )
             try:
                 prompt = (
@@ -360,10 +364,11 @@ def create_researcher_no_structured(llm) -> Callable:
 
 def build_graph(llm, researcher_factory: Callable):
     """Build the LangGraph workflow with a given researcher variant."""
-    from langgraph.graph import StateGraph, START, END
-    from src.core.types import AgentState
-    from src.agents.supervisor import create_supervisor_node
+    from langgraph.graph import END, START, StateGraph
+
     from src.agents.chart_gen import create_quant_node
+    from src.agents.supervisor import create_supervisor_node
+    from src.core.types import AgentState
 
     members = ["Researcher", "Quant"]
     supervisor_node = create_supervisor_node(llm, members)
@@ -393,11 +398,11 @@ async def run_ablation(llm, questions: list, mode: str) -> list:
     """Run evaluation for a specific ablation mode."""
     # Clear RAG cache to avoid cross-contamination
     import diskcache as dc
-    cache_path = settings.DATA_DIR / "rag_cache"
+    settings.DATA_DIR / "rag_cache"
     if mode != "full":
         # Use separate cache per ablation mode
-        cache = dc.Cache(settings.DATA_DIR / f"rag_cache_ablation_{mode}")
-    
+        dc.Cache(settings.DATA_DIR / f"rag_cache_ablation_{mode}")
+
     # Select researcher variant
     if mode == "full":
         from src.agents.researcher import create_researcher_node
@@ -476,7 +481,7 @@ def print_summary(name: str, results: list):
     console.print(table)
 
 
-def print_comparison(all_results: Dict[str, list]):
+def print_comparison(all_results: dict[str, list]):
     """Print side-by-side comparison of all ablation modes."""
     table = Table(title="Ablation Study Comparison")
     table.add_column("Mode", style="bold")
@@ -523,7 +528,7 @@ def save_results(mode: str, results: list):
     console.print(f"[dim]Results saved to {path}[/]")
 
 
-def save_comparison(all_results: Dict[str, list]):
+def save_comparison(all_results: dict[str, list]):
     """Save comparison summary as JSON."""
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     summary = {}

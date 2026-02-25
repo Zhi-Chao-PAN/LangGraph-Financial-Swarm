@@ -10,8 +10,9 @@ import json
 import sys
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import matplotlib
+import matplotlib.pyplot as plt
+
 matplotlib.use("Agg")
 import numpy as np
 
@@ -56,7 +57,7 @@ def load_results():
     for mode in MODE_LABELS:
         path = RESULTS_DIR / f"{mode}.json"
         if path.exists():
-            with open(path, "r", encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 data[mode] = json.load(f)
     return data
 
@@ -96,7 +97,7 @@ def plot_accuracy_comparison(all_metrics):
     fig, ax = plt.subplots(figsize=(8, 5))
     bars = ax.bar(labels, accs, color=colors, edgecolor="white", linewidth=1.5)
 
-    for bar, acc in zip(bars, accs):
+    for bar, acc in zip(bars, accs, strict=False):
         ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 1,
                 f"{acc:.1f}%", ha="center", va="bottom", fontweight="bold", fontsize=12)
 
@@ -130,7 +131,7 @@ def plot_difficulty_breakdown(all_metrics):
             else:
                 accs.append(0)
         offset = (i - len(modes) / 2 + 0.5) * width
-        bars = ax.bar(x + offset, accs, width, label=MODE_LABELS.get(mode, mode),
+        ax.bar(x + offset, accs, width, label=MODE_LABELS.get(mode, mode),
                       color=COLORS.get(mode, "#999"), edgecolor="white")
 
     ax.set_ylabel("Accuracy (%)", fontsize=12)
@@ -159,7 +160,7 @@ def plot_partial_score(all_metrics):
     fig, ax = plt.subplots(figsize=(8, 5))
     bars = ax.bar(labels, scores, color=colors, edgecolor="white", linewidth=1.5)
 
-    for bar, s in zip(bars, scores):
+    for bar, s in zip(bars, scores, strict=False):
         ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.01,
                 f"{s:.3f}", ha="center", va="bottom", fontweight="bold", fontsize=12)
 

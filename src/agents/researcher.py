@@ -1,6 +1,9 @@
 import re
-from typing import Dict, Any, Callable, List
-from langchain_core.messages import AIMessage, SystemMessage, HumanMessage
+from collections.abc import Callable
+from typing import Any
+
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+
 from src.core.types import AgentState
 from src.utils.robustness import log_agent_action
 
@@ -23,7 +26,7 @@ NVIDIA gross margin FY2025
 Apple gross margin FY2025"""
 
 
-def _rewrite_query(llm, question: str) -> List[str]:
+def _rewrite_query(llm, question: str) -> list[str]:
     """Use LLM to decompose complex questions into sub-queries."""
     try:
         response = llm.invoke([
@@ -41,11 +44,10 @@ def _rewrite_query(llm, question: str) -> List[str]:
     return [question]
 
 
-def _detect_companies(question: str) -> List[str]:
+def _detect_companies(question: str) -> list[str]:
     """Detect which companies are mentioned in the question."""
     q_lower = question.lower()
-    found = [c for c in KNOWN_COMPANIES if c in q_lower]
-    return found
+    return [c for c in KNOWN_COMPANIES if c in q_lower]
 
 
 def _is_multi_entity_question(question: str) -> bool:
@@ -62,7 +64,7 @@ def _is_multi_entity_question(question: str) -> bool:
     return has_indicator or len(companies) >= 2
 
 
-def _build_sub_queries(question: str) -> List[str]:
+def _build_sub_queries(question: str) -> list[str]:
     """
     Deterministic sub-query generation for multi-entity questions.
     No LLM call — just template-based decomposition.
@@ -98,7 +100,7 @@ def _build_sub_queries(question: str) -> List[str]:
     return sub_queries
 
 
-def _verify_coverage(question: str, answer: str) -> List[str]:
+def _verify_coverage(question: str, answer: str) -> list[str]:
     """
     Check if the answer covers all entities mentioned in the question.
     Returns list of missing entities.
@@ -112,13 +114,13 @@ def _verify_coverage(question: str, answer: str) -> List[str]:
     return missing
 
 
-def create_researcher_node(llm) -> Callable[[AgentState], Dict[str, Any]]:
+def create_researcher_node(llm) -> Callable[[AgentState], dict[str, Any]]:
     """
     Creates the Researcher node with deterministic multi-query
     and retrieval verification.
     """
 
-    def researcher_node(state: AgentState) -> Dict[str, Any]:
+    def researcher_node(state: AgentState) -> dict[str, Any]:
         messages = state.get("messages", [])
 
         # Extract the original user question
@@ -127,7 +129,7 @@ def create_researcher_node(llm) -> Callable[[AgentState], Dict[str, Any]]:
             if isinstance(msg, tuple) and len(msg) == 2 and msg[0] == "user":
                 user_question = msg[1]
                 break
-            elif hasattr(msg, "type") and msg.type == "human":
+            if hasattr(msg, "type") and msg.type == "human":
                 user_question = msg.content
                 break
 
@@ -185,7 +187,7 @@ def create_researcher_node(llm) -> Callable[[AgentState], Dict[str, Any]]:
         # Synthesize if multiple sub-queries
         if len(sub_queries) > 1 and len(all_answers) > 1:
             combined_context = "\n\n".join(
-                f"[Sub-query: {sq}]\n{ans}" for sq, ans in zip(sub_queries, all_answers)
+                f"[Sub-query: {sq}]\n{ans}" for sq, ans in zip(sub_queries, all_answers, strict=False)
             )
             try:
                 synthesis_prompt = (

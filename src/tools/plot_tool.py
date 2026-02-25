@@ -1,10 +1,11 @@
-import os
 import io
 import json
+import os
 import uuid
 
-import pandas as pd
 import matplotlib
+import pandas as pd
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from langchain_core.tools import tool
@@ -74,7 +75,7 @@ def create_plot(data_str: str, plot_type: str, title: str, xlabel: str, ylabel: 
                 vals = df[vc].astype(float).tolist()
                 ax.bar(x_pos, vals, bottom=bottom, label=vc,
                        color=COLORS[i % len(COLORS)])
-                bottom = [b + v for b, v in zip(bottom, vals)]
+                bottom = [b + v for b, v in zip(bottom, vals, strict=False)]
             ax.set_xticks(list(x_pos))
             ax.set_xticklabels(categories, rotation=45, ha="right")
             ax.legend(loc="upper left", fontsize=9)

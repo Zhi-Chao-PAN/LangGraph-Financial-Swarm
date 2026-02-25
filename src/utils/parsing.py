@@ -1,12 +1,12 @@
 
 import json
-import re
-from typing import Any, Dict, List, Union
+from typing import Any
 
-def robust_json_parse(json_str: str) -> Union[Dict, List, Any]:
+
+def robust_json_parse(json_str: str) -> dict | list | Any:
     """
     Robustly parse JSON strings, strictly prioritizing professional libraries.
-    
+
     1. Try `json5` (Handles trailing commas, comments, single quotes).
     2. Fallback to standard `json`.
     3. Last resort: Heuristic repair for common LLM malformations (e.g. invalid boolean literals).
@@ -36,5 +36,5 @@ def robust_json_parse(json_str: str) -> Union[Dict, List, Any]:
         if "'" in cleaned and '"' not in cleaned:
              cleaned = cleaned.replace("'", '"')
         return json.loads(cleaned)
-    except json.JSONDecodeError:
-        raise ValueError(f"Failed to parse JSON content: {json_str[:50]}...")
+    except json.JSONDecodeError as err:
+        raise ValueError(f"Failed to parse JSON content: {json_str[:50]}...") from err

@@ -8,6 +8,7 @@ Usage:
 
 import argparse
 from pathlib import Path
+
 from src.data.pdf_parser import parse_pdf, parse_pdf_dir
 
 

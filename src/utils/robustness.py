@@ -1,10 +1,12 @@
-import time
 import asyncio
 import functools
-import logging
 import json
+import logging
+import time
+from collections.abc import Callable
 from logging.handlers import RotatingFileHandler
-from typing import Any, Callable
+from typing import Any
+
 from src.core.config import settings
 
 logger = logging.getLogger("SwarmTracer")
@@ -32,6 +34,7 @@ def retry_with_backoff(retries: int = 3, backoff_in_seconds: int = 1):
                     sleep = backoff_in_seconds * 2**attempt
                     logger.warning(f"{func.__name__} failed (attempt {attempt + 1}/{retries}). Retrying in {sleep}s...")
                     time.sleep(sleep)
+            return None
 
         return wrapper
 
@@ -54,6 +57,7 @@ def async_retry_with_backoff(retries: int = 3, backoff_in_seconds: int = 1):
                     sleep = backoff_in_seconds * 2**attempt
                     logger.warning(f"{func.__name__} failed (attempt {attempt + 1}/{retries}). Retrying in {sleep}s...")
                     await asyncio.sleep(sleep)
+            return None
 
         return wrapper
 

@@ -11,7 +11,6 @@ Usage:
 import argparse
 import asyncio
 import json
-import os
 import re
 import sys
 import time
@@ -20,8 +19,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from rich.console import Console
-from rich.table import Table
 from rich.progress import track
+from rich.table import Table
 
 from src.core.config import settings
 from src.core.llm import DirectOllamaChat
@@ -33,7 +32,7 @@ RESULTS_DIR = Path(__file__).parent / "results"
 
 
 def load_benchmark():
-    with open(BENCHMARK_PATH, "r", encoding="utf-8") as f:
+    with open(BENCHMARK_PATH, encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -66,29 +65,29 @@ def _extract_entities(text: str) -> set[str]:
     """Extract key financial entities from text."""
     entities = set()
     lower = text.lower()
-    
+
     # Segment/region names
     for name in ["data center", "gaming", "automotive", "professional visualization",
                  "united states", "china", "taiwan", "singapore"]:
         if name in lower:
             entities.add(name)
-    
+
     # Fiscal years
     for m in re.finditer(r"fy\d{4}", lower):
         entities.add(m.group())
-    
+
     # Directional terms (group synonyms)
     growth_terms = ["increase", "increased", "grew", "growth", "grow", "up from", "higher"]
     decline_terms = ["decrease", "decreased", "decline", "declined", "dropped", "drop", "lower", "fell"]
     compare_terms = ["better", "worse", "fluctuat", "not consistently", "inconsistent"]
-    
+
     if any(t in lower for t in growth_terms):
         entities.add("growth")
     if any(t in lower for t in decline_terms):
         entities.add("decline")
     if any(t in lower for t in compare_terms):
         entities.add("comparison")
-    
+
     return entities
 
 
@@ -201,11 +200,12 @@ async def run_baseline(llm, questions: list) -> list:
 
 async def run_swarm(llm, questions: list) -> list:
     """Multi-agent Swarm with RAG."""
-    from langgraph.graph import StateGraph, START, END
-    from src.core.types import AgentState
-    from src.agents.supervisor import create_supervisor_node
-    from src.agents.researcher import create_researcher_node
+    from langgraph.graph import END, START, StateGraph
+
     from src.agents.chart_gen import create_quant_node
+    from src.agents.researcher import create_researcher_node
+    from src.agents.supervisor import create_supervisor_node
+    from src.core.types import AgentState
 
     members = ["Researcher", "Quant"]
     supervisor_node = create_supervisor_node(llm, members)

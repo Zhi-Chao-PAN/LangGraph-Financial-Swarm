@@ -1,19 +1,19 @@
 import matplotlib
+
 matplotlib.use("Agg")
 
 import os
-import sys
 import subprocess
-import pytest
-from unittest.mock import patch, MagicMock
-from langchain_core.messages import AIMessage, HumanMessage
+import sys
+from unittest.mock import MagicMock
 
-from src.core.config import settings
-from src.agents.supervisor import create_supervisor_node, _parse_routing, _keyword_route
+from langchain_core.messages import AIMessage
+
+from eval.run_eval import _approx_match, _extract_numbers, check_answer
 from src.agents.researcher import _rewrite_query
+from src.agents.supervisor import _keyword_route, _parse_routing, create_supervisor_node
+from src.core.config import settings
 from src.utils.validation import sanitize_input
-from eval.run_eval import check_answer, _extract_numbers, _approx_match
-
 
 # ─── Config ───
 

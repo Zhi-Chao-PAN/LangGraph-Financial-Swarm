@@ -14,9 +14,10 @@ Usage:
 """
 
 import re
-import fitz  # PyMuPDF
 from pathlib import Path
-from typing import Optional
+
+import fitz  # PyMuPDF
+
 from src.utils.robustness import log_agent_action
 
 
@@ -119,7 +120,7 @@ def _detect_section_headers(text: str) -> str:
     return "\n".join(result)
 
 
-def parse_pdf(pdf_path: str | Path, company: Optional[str] = None) -> str:
+def parse_pdf(pdf_path: str | Path, company: str | None = None) -> str:
     """
     Parse a single PDF file into structured Markdown.
 
@@ -179,8 +180,8 @@ def parse_pdf(pdf_path: str | Path, company: Optional[str] = None) -> str:
 
 def parse_pdf_dir(
     pdf_dir: str | Path,
-    output_path: Optional[str | Path] = None,
-    company_map: Optional[dict] = None,
+    output_path: str | Path | None = None,
+    company_map: dict | None = None,
 ) -> str:
     """
     Parse all PDFs in a directory into a single Markdown file.

@@ -1,8 +1,9 @@
-import pandas as pd
 import functools
-import re
 import json
-from typing import Callable
+import re
+from collections.abc import Callable
+
+import pandas as pd
 
 
 def validate_dataframe(func: Callable) -> Callable:
@@ -25,8 +26,8 @@ def validate_dataframe(func: Callable) -> Callable:
 
         try:
             data = json.loads(data_str)
-        except Exception:
-            raise ValueError("Invalid JSON format.")
+        except Exception as err:
+            raise ValueError("Invalid JSON format.") from err
 
         if not isinstance(data, list):
             raise ValueError("Data must be a list of dictionaries.")
@@ -54,6 +55,5 @@ def sanitize_input(user_input: str) -> str:
         clean = clean[:500]
 
     # Remove control characters but keep all printable Unicode
-    clean = re.sub(r"[\x00-\x1f\x7f]", "", clean)
+    return re.sub(r"[\x00-\x1f\x7f]", "", clean)
 
-    return clean

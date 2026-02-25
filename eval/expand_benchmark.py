@@ -1,7 +1,7 @@
 import json
 
 # Load existing benchmark
-with open("eval/benchmark.json", "r", encoding="utf-8") as f:
+with open("eval/benchmark.json", encoding="utf-8") as f:
     existing = json.load(f)
 
 next_id = max(q["id"] for q in existing) + 1

@@ -3,9 +3,9 @@ Custom LlamaIndex LLM that calls Ollama REST API directly via requests.
 Bypasses the ollama Python client which has compatibility issues.
 """
 
+
 import requests
-from typing import Any, Optional
-from llama_index.core.llms import CustomLLM, CompletionResponse, LLMMetadata
+from llama_index.core.llms import CompletionResponse, CustomLLM, LLMMetadata
 from llama_index.core.llms.callbacks import llm_completion_callback
 
 

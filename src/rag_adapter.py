@@ -1,19 +1,19 @@
+import asyncio
 import os
 import re
-import asyncio
 import time
-from typing import Dict, Any, List
+from typing import Any
 
-from llama_index.core import VectorStoreIndex, Document
-from llama_index.core.node_parser import SentenceSplitter
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-from src.core.llm_index import DirectOllamaLLM
-from src.core.config import settings
-from src.utils.robustness import async_retry_with_backoff, log_agent_action
 import diskcache as dc
+from llama_index.core import Document, VectorStoreIndex
+from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+
+from src.core.config import settings
+from src.core.llm_index import DirectOllamaLLM
+from src.utils.robustness import async_retry_with_backoff, log_agent_action
 
 
-def _parse_sections(text: str) -> List[Document]:
+def _parse_sections(text: str) -> list[Document]:
     """
     Parse financial markdown into structured chunks.
     Each section (with its tables) becomes a separate Document with metadata.
@@ -139,7 +139,7 @@ class RAGAdapter:
         if not os.path.exists(data_path):
             raise FileNotFoundError(f"RAG data not found at {data_path}")
 
-        with open(data_path, 'r', encoding='utf-8') as f:
+        with open(data_path, encoding='utf-8') as f:
             raw_text = f.read()
 
         # Structure-aware parsing
@@ -155,7 +155,7 @@ class RAGAdapter:
         )
         return llm
 
-    def query(self, question: str) -> Dict[str, Any]:
+    def query(self, question: str) -> dict[str, Any]:
         """Synchronous query interface."""
         cached = self.cache.get(question)
         if cached:
@@ -179,7 +179,7 @@ class RAGAdapter:
             loop = asyncio.get_running_loop()
             await loop.run_in_executor(None, self._build_index)
 
-    async def aquery(self, question: str) -> Dict[str, Any]:
+    async def aquery(self, question: str) -> dict[str, Any]:
         """Async query with caching and retry."""
         loop = asyncio.get_running_loop()
 
@@ -206,7 +206,7 @@ class RAGAdapter:
             return {"model_answer": f"Error: {msg}", "source_nodes": [], "latency_s": 0.0}
 
     @staticmethod
-    def _format_result(response, question: str, latency: float = 0.0) -> Dict[str, Any]:
+    def _format_result(response, question: str, latency: float = 0.0) -> dict[str, Any]:
         sources = []
         if hasattr(response, "source_nodes"):
             for node in response.source_nodes:

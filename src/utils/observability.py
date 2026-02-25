@@ -1,10 +1,10 @@
 import time
-import json
-from typing import Dict, Any, Optional
+from typing import Any
+
 from rich.console import Console
-from rich.theme import Theme
 from rich.panel import Panel
 from rich.text import Text
+from rich.theme import Theme
 
 custom_theme = Theme({
     "info": "dim cyan",
@@ -35,7 +35,7 @@ class Observability:
         console.print(Panel(banner, border_style="cyan"))
 
     @staticmethod
-    def trace_agent(agent_name: str, content: str, metadata: Optional[Dict[str, Any]] = None):
+    def trace_agent(agent_name: str, content: str, metadata: dict[str, Any] | None = None):
         """Log an agent's action with rich formatting."""
         style = agent_name.lower()
         if style not in ("supervisor", "researcher", "quant"):
