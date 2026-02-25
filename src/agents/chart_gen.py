@@ -1,3 +1,10 @@
+"""
+Chart generation agent (Quant Analyst).
+
+Generates financial visualizations by extracting data from
+researcher answers and producing bar/line/pie/stacked_bar charts.
+"""
+
 import json
 import re
 from collections.abc import Callable

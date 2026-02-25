@@ -1,3 +1,8 @@
+"""
+RAG adapter with structure-aware chunking, async query support,
+caching with TTL, and retry with backoff.
+"""
+
 import asyncio
 import os
 import re

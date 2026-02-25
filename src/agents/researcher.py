@@ -1,3 +1,8 @@
+"""
+Researcher agent with deterministic multi-query decomposition,
+retrieval verification, and multi-turn conversation support.
+"""
+
 import re
 from collections.abc import Callable
 from typing import Any

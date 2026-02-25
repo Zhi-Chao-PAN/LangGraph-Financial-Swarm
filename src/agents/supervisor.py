@@ -1,3 +1,10 @@
+"""
+Supervisor agent with LLM-based routing and deterministic fallback.
+
+Routes questions to Researcher or Quant agents, enforces max_rounds
+to prevent infinite loops, and detects completion conditions.
+"""
+
 import re
 from collections.abc import Callable
 from typing import Any
