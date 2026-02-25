@@ -29,15 +29,25 @@ def create_supervisor_node(llm, members: List[str]) -> Callable:
 
         # Check if any agent already responded with substantive content
         has_agent_response = False
+        error_count = 0
+        agent_response_count = 0
         for msg in messages:
             if isinstance(msg, AIMessage) and hasattr(msg, "content"):
                 content = msg.content
-                if ("Citations" in content or len(content) > 100) and "Error" not in content:
+                if "Error" in content or "timed out" in content:
+                    error_count += 1
+                elif len(content) > 20:
                     has_agent_response = True
+                    agent_response_count += 1
 
         if has_agent_response:
             next_agent = "FINISH"
             log_agent_action("Supervisor", "Route", f"Decision: {next_agent} (agent responded)")
+            return {"messages": [], "next": next_agent}
+
+        if error_count >= 2:
+            next_agent = "FINISH"
+            log_agent_action("Supervisor", "Route", f"Decision: {next_agent} (repeated errors)")
             return {"messages": [], "next": next_agent}
 
         # Extract user question

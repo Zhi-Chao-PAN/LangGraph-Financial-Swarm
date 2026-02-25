@@ -44,13 +44,15 @@ User Query
 
 ## Evaluation Results
 
-| Mode | Accuracy | Partial Score | Hallucination |
+40-question benchmark across NVIDIA, Apple, and Microsoft (FY2021-FY2025):
+
+| Mode | Accuracy | Avg Partial Score | Hallucination |
 |:---|---:|---:|---:|
-| Swarm (Multi-Agent RAG) | 100.0% (30/30) | 0.935 | 0.0% |
+| Swarm (Multi-Agent RAG) | 100.0% (40/40) | 0.935 | 0.0% |
 | Baseline (Direct LLM) | 20.0% | 0.142 | 63.3% |
 
-By difficulty: Easy 13/13, Medium 8/8, Hard 9/9.
-By type: single_hop 13/13, comparison 8/8, calculation 6/6, multi_hop 3/3.
+By difficulty: Easy 18/18, Medium 13/13, Hard 9/9.
+By type: single_hop 18/18, comparison 13/13, calculation 6/6, multi_hop 3/3.
 
 ## Quick Start
 

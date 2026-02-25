@@ -17,84 +17,96 @@ def _parse_sections(text: str) -> List[Document]:
     """
     Parse financial markdown into structured chunks.
     Each section (with its tables) becomes a separate Document with metadata.
+    Company name is extracted from # headers and injected into every chunk.
     """
-    sections = re.split(r'\n## ', text)
+    # Split by top-level company headers (# Company Name)
+    company_blocks = re.split(r'\n(?=# [A-Z])', text)
     documents = []
 
-    # First section is the title/header
-    header = sections[0].strip() if sections else ""
-    header_line = header.split('\n')[0].replace('#', '').strip()
+    for block in company_blocks:
+        # Extract company name from first line
+        first_line = block.strip().split('\n')[0]
+        company_match = re.match(r'^#\s+(.+?)(?:\s*[—\-–])', first_line)
+        company_name = company_match.group(1).strip() if company_match else ""
 
-    for i, section in enumerate(sections):
-        if i == 0:
-            # Title section - include as context
-            if section.strip():
-                documents.append(Document(
-                    text=section.strip(),
-                    metadata={"section": "header", "index": 0}
-                ))
-            continue
+        # Split into sections within this company block
+        sections = re.split(r'\n## ', block)
 
-        section_text = "## " + section
-        lines = section_text.split('\n')
-        section_title = lines[0].replace('##', '').strip()
-
-        # Find tables within this section
-        table_lines = []
-        non_table_lines = []
-        in_table = False
-
-        for line in lines[1:]:
-            if '|' in line and '--' not in line:
-                in_table = True
-                table_lines.append(line)
-            elif in_table and '|' not in line:
-                # End of table - create a chunk with header + table
-                if table_lines:
-                    table_text = f"## {section_title}\n\n" + '\n'.join(table_lines)
+        for i, section in enumerate(sections):
+            if i == 0:
+                # Header section
+                if section.strip():
                     documents.append(Document(
-                        text=table_text,
-                        metadata={
-                            "section": section_title,
-                            "type": "table",
-                            "index": len(documents),
-                        }
+                        text=section.strip(),
+                        metadata={"company": company_name, "section": "header", "index": len(documents)}
                     ))
-                    table_lines = []
-                in_table = False
-                if line.strip():
-                    non_table_lines.append(line)
-            elif '---' in line:
                 continue
-            else:
-                if in_table:
+
+            section_text = "## " + section
+            lines = section_text.split('\n')
+            section_title = lines[0].replace('##', '').strip()
+
+            # Prefix with company name for disambiguation
+            company_prefix = f"[{company_name}] " if company_name else ""
+
+            # Find tables within this section
+            table_lines = []
+            non_table_lines = []
+            in_table = False
+
+            for line in lines[1:]:
+                if '|' in line and '--' not in line:
+                    in_table = True
                     table_lines.append(line)
-                elif line.strip():
-                    non_table_lines.append(line)
+                elif in_table and '|' not in line:
+                    if table_lines:
+                        table_text = f"{company_prefix}## {section_title}\n\n" + '\n'.join(table_lines)
+                        documents.append(Document(
+                            text=table_text,
+                            metadata={
+                                "company": company_name,
+                                "section": section_title,
+                                "type": "table",
+                                "index": len(documents),
+                            }
+                        ))
+                        table_lines = []
+                    in_table = False
+                    if line.strip():
+                        non_table_lines.append(line)
+                elif '---' in line:
+                    continue
+                else:
+                    if in_table:
+                        table_lines.append(line)
+                    elif line.strip():
+                        non_table_lines.append(line)
 
-        # Flush remaining table
-        if table_lines:
-            table_text = f"## {section_title}\n\n" + '\n'.join(table_lines)
-            documents.append(Document(
-                text=table_text,
-                metadata={
-                    "section": section_title,
-                    "type": "table",
-                    "index": len(documents),
-                }
-            ))
+            # Flush remaining table
+            if table_lines:
+                table_text = f"{company_prefix}## {section_title}\n\n" + '\n'.join(table_lines)
+                documents.append(Document(
+                    text=table_text,
+                    metadata={
+                        "company": company_name,
+                        "section": section_title,
+                        "type": "table",
+                        "index": len(documents),
+                    }
+                ))
 
-        # Non-table text
-        if non_table_lines:
-            nt_text = f"## {section_title}\n\n" + '\n'.join(non_table_lines)
-            documents.append(Document(
-                text=nt_text,
-                metadata={
-                    "section": section_title,
-                    "type": "text",
-                    "index": len(documents),
-                }
-            ))
+            # Non-table text
+            if non_table_lines:
+                nt_text = f"{company_prefix}## {section_title}\n\n" + '\n'.join(non_table_lines)
+                documents.append(Document(
+                    text=nt_text,
+                    metadata={
+                        "company": company_name,
+                        "section": section_title,
+                        "type": "text",
+                        "index": len(documents),
+                    }
+                ))
 
     log_agent_action("RAGAdapter", "Parse", f"Created {len(documents)} structured chunks")
     return documents

@@ -15,7 +15,7 @@
   },
   {
     "id": 3,
-    "question": "What was the gross margin in FY2023?",
+    "question": "What was NVIDIA's gross margin in FY2023?",
     "answer": "56.9%",
     "type": "single_hop",
     "difficulty": "easy"
@@ -29,7 +29,7 @@
   },
   {
     "id": 5,
-    "question": "What was the diluted EPS in FY2024?",
+    "question": "What was NVIDIA's diluted EPS in FY2024?",
     "answer": "11.93",
     "type": "single_hop",
     "difficulty": "easy"
@@ -57,14 +57,14 @@
   },
   {
     "id": 9,
-    "question": "What was the operating margin in FY2025?",
+    "question": "What was NVIDIA's operating margin in FY2025?",
     "answer": "65.2%",
     "type": "single_hop",
     "difficulty": "easy"
   },
   {
     "id": 10,
-    "question": "How much revenue came from China (incl. HK) in FY2025?",
+    "question": "How much revenue came from China (incl. HK) in NVIDIA's FY2025?",
     "answer": "17,107",
     "type": "single_hop",
     "difficulty": "easy"
@@ -85,7 +85,7 @@
   },
   {
     "id": 13,
-    "question": "Which segment had the highest revenue in FY2025?",
+    "question": "Which NVIDIA segment had the highest revenue in FY2025?",
     "answer": "Data Center with $115,199 million",
     "type": "comparison",
     "difficulty": "medium"
@@ -99,14 +99,14 @@
   },
   {
     "id": 15,
-    "question": "What was the largest geographic revenue source in FY2025?",
+    "question": "What was NVIDIA's largest geographic revenue source in FY2025?",
     "answer": "United States with $45,274 million",
     "type": "comparison",
     "difficulty": "medium"
   },
   {
     "id": 16,
-    "question": "How did R&D spending as a percentage of revenue change from FY2021 to FY2025?",
+    "question": "How did NVIDIA's R&D spending as a percentage of revenue change from FY2021 to FY2025?",
     "answer": "Decreased from 23.5% to 9.9%, despite absolute R&D spending increasing from $3,924M to $12,893M",
     "type": "multi_hop",
     "difficulty": "hard"
@@ -169,7 +169,7 @@
   },
   {
     "id": 25,
-    "question": "What was the capital expenditure in FY2025 and how does it compare to FY2023?",
+    "question": "What was NVIDIA's capital expenditure in FY2025 and how does it compare to FY2023?",
     "answer": "FY2025 CapEx was $3,233M vs FY2023's $976M, a 231% increase",
     "type": "comparison",
     "difficulty": "medium"
@@ -190,7 +190,7 @@
   },
   {
     "id": 28,
-    "question": "What was the cost of revenue in FY2025?",
+    "question": "What was NVIDIA's cost of revenue in FY2025?",
     "answer": "29,168",
     "type": "single_hop",
     "difficulty": "easy"

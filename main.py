@@ -49,7 +49,7 @@ async def run_query(graph, query: str):
     with console.status("[bold blue]Agents are collaborating...[/]", spinner="dots"):
         async for s in graph.astream(
             {"messages": [("user", query)]},
-            {"recursion_limit": 15},
+            {"recursion_limit": 25},
         ):
             steps += 1
             if "__end__" not in s:

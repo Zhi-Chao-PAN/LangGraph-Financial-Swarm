@@ -235,7 +235,7 @@ async def run_swarm(llm, questions: list) -> list:
         try:
             final_state = await graph.ainvoke(
                 {"messages": [("user", q["question"])]},
-                {"recursion_limit": 15},
+                {"recursion_limit": 25},
             )
             answer = final_state["messages"][-1].content if final_state["messages"] else "No answer"
         except Exception as e:
