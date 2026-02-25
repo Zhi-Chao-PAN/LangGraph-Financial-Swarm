@@ -40,6 +40,7 @@ User Query
 - **Deterministic Multi-Query**: Multi-entity questions decomposed without LLM calls, with coverage verification.
 - **Retrieval Verification**: After answering, checks if all entities are covered; auto-fills gaps with targeted queries.
 - **PDF Ingestion**: Built-in PDF parser (PyMuPDF) extracts text + tables to Markdown for RAG.
+- **Multi-Turn Conversation**: Follow-up detection, context injection, and `/history` command (v0.7.0).
 - **Multi-Company**: Financial data for NVIDIA, Apple, and Microsoft (FY2021-FY2025).
 
 ## Evaluation Results
@@ -127,6 +128,7 @@ python eval/run_ablation.py --mode all
 │   │   └── chart_gen.py     # Visualization (6 chart types)
 │   ├── core/
 │   │   ├── config.py        # Pydantic settings
+│   │   ├── conversation.py  # Multi-turn memory + follow-up detection
 │   │   ├── llm.py           # DirectOllamaChat (bypasses ollama lib 502 bug)
 │   │   ├── llm_index.py     # DirectOllamaLLM (LlamaIndex compatible)
 │   │   └── types.py         # State definitions
@@ -146,7 +148,7 @@ python eval/run_ablation.py --mode all
 │   ├── run_ablation.py      # Ablation study (4 modes)
 │   └── plot_ablation.py     # Publication-ready charts
 ├── data/parsed/             # NVIDIA + Apple + Microsoft financials
-├── tests/                   # 52 tests
+├── tests/                   # 82 tests
 ├── EXPERIMENT_LOG.md        # All experiment results with parameters
 └── docs/                    # Architecture Decision Records
 ```
@@ -158,7 +160,7 @@ pip install .[dev]
 python -m pytest tests/ -v
 ```
 
-52 tests covering: config, supervisor routing, input sanitization, number extraction, approximate matching, answer checking, plot generation, and query rewriting.
+82 tests covering: config, supervisor routing, input sanitization, number extraction, approximate matching, answer checking, plot generation, query rewriting, PDF parsing, and conversation memory.
 
 ## License
 
