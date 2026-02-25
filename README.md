@@ -10,42 +10,46 @@ Traditional single-agent RAG pipelines struggle with multi-step financial reason
 
 ```
 User Query
-    |
-    v
-+--------------+
-|  Supervisor   | <-- LLM Routing + Keyword Fallback
-+------+-------+
-       | delegates
-       +------------------+
-       v                  v
-+--------------+   +--------------+
-|  Researcher   |   |    Quant     |
-| Deterministic |   | Visualization|
-| Multi-Query   |   | bar/line/pie |
-| + Retrieval   |   +--------------+
-|  Verification |
-+--------------+
-       |
-       +---> Supervisor --> FINISH
+    │
+    ▼
+┌──────────────┐
+│  Supervisor   │ ◄── LLM Routing + Keyword Fallback
+└──────┬───────┘
+       │ delegates
+       ├──────────────────┐
+       ▼                  ▼
+┌──────────────┐   ┌──────────────┐
+│  Researcher   │   │    Quant     │
+│ Deterministic │   │ Visualization│
+│ Multi-Query   │   │ bar/line/pie │
+│ + Hybrid RAG  │   └──────────────┘
+│ + Retrieval   │
+│  Verification │
+└──────────────┘
+       │
+       └───▶ Supervisor ──▶ FINISH
 ```
 
-- **Supervisor**: LLM-based intent routing with keyword fallback.
-- **Researcher**: Deterministic multi-entity query decomposition, multi-query RAG with retrieval verification.
+- **Supervisor**: LLM-based intent routing with keyword fallback, max_rounds guard.
+- **Researcher**: Deterministic multi-entity query decomposition, hybrid RAG (BM25 + vector), retrieval verification, confidence scoring.
 - **Quant**: Generates bar, line, pie, stacked bar, and grouped bar charts.
 
 ### Key Features
 
 - **Local-first**: All inference via Ollama (DeepSeek-R1:8B). No data leaves your environment.
+- **Hybrid Search (v0.8.0)**: BM25 lexical + dense vector retrieval fused with Reciprocal Rank Fusion (RRF).
 - **Structure-Aware RAG**: Documents chunked by section/table, each table is an independent retrieval unit.
 - **Deterministic Multi-Query**: Multi-entity questions decomposed without LLM calls, with coverage verification.
 - **Retrieval Verification**: After answering, checks if all entities are covered; auto-fills gaps with targeted queries.
-- **PDF Ingestion**: Built-in PDF parser (PyMuPDF) extracts text + tables to Markdown for RAG.
+- **PDF Ingestion**: Built-in PDF parser (PyMuPDF) extracts text + tables to Markdown for RAG. No API key needed.
 - **Multi-Turn Conversation**: Follow-up detection, context injection, and `/history` command (v0.7.0).
-- **Multi-Company**: Financial data for NVIDIA, Apple, and Microsoft (FY2021-FY2025).
+- **Rich CLI UI (v0.8.0)**: Interactive terminal with status dashboard, formatted answer panels, eval tables, export, and cache management.
+- **Graceful Degradation**: Ollama health check on startup; fallback messages when LLM is unavailable.
+- **Multi-Company**: Financial data for NVIDIA, Apple, and Microsoft (FY2021–FY2025).
 
 ## Evaluation Results
 
-60-question benchmark across NVIDIA, Apple, and Microsoft (FY2021-FY2025):
+60-question benchmark across NVIDIA, Apple, and Microsoft (FY2021–FY2025):
 
 | Mode | Accuracy | Avg Partial Score | Hallucination |
 |:---|---:|---:|---:|
@@ -65,8 +69,8 @@ By type: single_hop 18/18, comparison 21/21, calculation 13/13, multi_hop 8/8.
 | w/o Multi-Query Synthesis | 87.5% | 0.839 | 2.5% | 13.9s |
 
 Key findings:
-- Multi-Query Synthesis is the most critical component (-10% accuracy without it)
-- Structured Chunking prevents hallucinations and reduces latency 4.5x
+- Multi-Query Synthesis is the most critical component (−10% accuracy without it)
+- Structured Chunking prevents hallucinations and reduces latency 4.5×
 - LLM-based Query Rewriting was replaced with deterministic decomposition in v0.6.0
 
 ## Quick Start
@@ -79,88 +83,83 @@ Key findings:
 ### Installation
 
 ```bash
-git clone https://github.com/Zhi-Chao-PAN/LangGraph-Financial-Swarm.git
+git clone https://github.com/panzc/LangGraph-Financial-Swarm.git
 cd LangGraph-Financial-Swarm
-pip install .
+pip install -e ".[dev,pdf]"
 ```
 
-### Configuration
-
-Copy `.env.example` to `.env`:
-
-```env
-LLM_MODEL=deepseek-r1:8b
-LLM_BASE_URL=http://localhost:11434
-EMBEDDING_MODEL=BAAI/bge-large-en-v1.5
-```
-
-### Run
+### Interactive CLI
 
 ```bash
-# Single query
-python main.py --query "What was NVIDIA's revenue in FY2025?"
-
-# Multi-company comparison
-python main.py --query "Compare NVIDIA and Apple gross margin in FY2025"
-
-# Parse PDF and ingest
-python -m src.data.pdf_parser --input report.pdf --output data/parsed/output.md
+python -m src
 ```
 
-### Evaluate
+This launches the Rich CLI with:
+- System status dashboard (Ollama health, model info, data status)
+- Interactive query mode with formatted answer panels
+- Commands: `/ask`, `/chart`, `/history`, `/stats`, `/cache`, `/export`, `/status`
+
+### Data Ingestion
 
 ```bash
-# Full evaluation (60 questions)
-python eval/run_eval.py --mode both
+# Ingest from PDF (local PyMuPDF, no API key needed)
+python -m src.data.ingest --input data/raw/NVIDIA_10K.pdf --output data/parsed/nvidia.md
 
-# Ablation study
-python eval/run_ablation.py --mode all
+# Ingest from directory (PDF + Markdown)
+python -m src.data.ingest --input data/raw/ --output data/parsed/combined.md
+```
+
+### Run Evaluation
+
+```bash
+python eval/run_eval.py
+```
+
+### Run Tests
+
+```bash
+python -m pytest tests/ -v
 ```
 
 ## Project Structure
 
 ```
-├── main.py                  # Entry point
+LangGraph-Financial-Swarm/
 ├── src/
-│   ├── agents/
-│   │   ├── supervisor.py    # LLM routing + keyword fallback
-│   │   ├── researcher.py    # Deterministic multi-query + retrieval verification
-│   │   └── chart_gen.py     # Visualization (6 chart types)
-│   ├── core/
-│   │   ├── config.py        # Pydantic settings
-│   │   ├── conversation.py  # Multi-turn memory + follow-up detection
-│   │   ├── llm.py           # DirectOllamaChat (bypasses ollama lib 502 bug)
-│   │   ├── llm_index.py     # DirectOllamaLLM (LlamaIndex compatible)
-│   │   └── types.py         # State definitions
-│   ├── data/
-│   │   └── pdf_parser.py    # PDF to Markdown (PyMuPDF)
-│   ├── tools/
-│   │   └── plot_tool.py     # Matplotlib chart generation
-│   ├── utils/
-│   │   ├── robustness.py    # Retry, logging, backoff
-│   │   ├── validation.py    # Input sanitization
-│   │   ├── observability.py # Rich UI tracing
-│   │   └── parsing.py       # Robust JSON parsing
-│   └── rag_adapter.py       # Structure-aware RAG (section/table chunking)
-├── eval/
-│   ├── benchmark.json       # 60-question benchmark
-│   ├── run_eval.py          # Evaluation script
-│   ├── run_ablation.py      # Ablation study (4 modes)
-│   └── plot_ablation.py     # Publication-ready charts
-├── data/parsed/             # NVIDIA + Apple + Microsoft financials
-├── tests/                   # 82 tests
-├── EXPERIMENT_LOG.md        # All experiment results with parameters
-└── docs/                    # Architecture Decision Records
+│   ├── agents/          # Supervisor, Researcher, Quant agents
+│   ├── core/            # Config, LLM adapters, conversation, types
+│   ├── data/            # PDF parser, data ingestion pipeline
+│   ├── tools/           # Plot tool for chart generation
+│   ├── ui/              # Rich CLI (dashboard, display, interactive)
+│   ├── utils/           # Robustness, validation, observability
+│   └── rag_adapter.py   # Hybrid search (BM25 + vector RRF)
+├── eval/                # Benchmark, ablation, latency analysis
+├── tests/               # 142 tests (unit + integration)
+├── data/                # Financial data (raw + parsed)
+├── .github/workflows/   # CI/CD (lint + test)
+└── pyproject.toml       # v0.8.0
 ```
 
-## Testing
+## Version History
 
-```bash
-pip install .[dev]
-python -m pytest tests/ -v
-```
+| Version | Highlights |
+|:---|:---|
+| v0.8.0 | Hybrid search (BM25+RRF), Rich CLI UI, E2E PDF pipeline, health check, graceful degradation, CI/CD, 142 tests |
+| v0.7.0 | Multi-turn conversation, follow-up detection, confidence scoring, latency analysis |
+| v0.6.0 | Deterministic multi-query, retrieval verification, 60-question benchmark, PDF parser |
+| v0.5.0 | Ablation study (4 experiments), structured chunking validation |
+| v0.4.0 | Multi-company support (NVIDIA + Apple + Microsoft), 40-question benchmark |
+| v0.3.0 | Structure-aware RAG, DirectOllamaChat/LLM bypass |
+| v0.2.0 | Basic supervisor-worker graph, NVIDIA-only |
 
-82 tests covering: config, supervisor routing, input sanitization, number extraction, approximate matching, answer checking, plot generation, query rewriting, PDF parsing, and conversation memory.
+## Environment
+
+- Hardware: ASUS Laptop, Intel Ultra 9 185H + RTX 4060 Laptop (8GB VRAM) + 40GB RAM
+- OS: Windows 11
+- Ollama: 0.15.2
+- Model: deepseek-r1:8b
+- Python: 3.12
+- Embedding: BAAI/bge-large-en-v1.5 (CPU)
 
 ## License
 

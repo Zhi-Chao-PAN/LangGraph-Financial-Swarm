@@ -49,6 +49,19 @@
 | PDF E2E test | Passed | Apple 213K chars/199 tables, Microsoft 345K chars/6 tables |
 | Conversation memory | v0.7.0 | Follow-up detection, context injection, ConversationManager |
 
+## v0.8.0 Features (2025-02-26)
+
+| Task | Status | Details |
+|---|---|---|
+| Hybrid Search | Done | BM25 + Vector retrieval, Reciprocal Rank Fusion (RRF), 20 tests |
+| Rich CLI UI | Done | Banner, status dashboard, answer panels, eval tables, cache mgmt, export |
+| E2E PDF Ingest | Done | Local PyMuPDF parser (no API key), directory batch ingest, 7 tests |
+| Ollama Health Check | Done | Startup health check, graceful LLM degradation, 5 tests |
+| CI/CD | Done | GitHub Actions: ruff lint + format check + pytest |
+| Input Validation | Done | sanitize_input, sanitize_rag_query, validate_dataframe decorator |
+| Code Quality | 0 errors | ruff lint + format, 142 tests passing |
+| Version | v0.8.0 | pyproject.toml, README rewrite, __main__.py entry point |
+
 ## Environment
 
 - Hardware: ASUS Laptop, Intel Ultra 9 185H + RTX 4060 Laptop (8GB VRAM) + 40GB RAM

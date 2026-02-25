@@ -4,20 +4,11 @@ Provides a polished terminal UI with status dashboard, formatted output,
 and interactive query mode.
 """
 
-import json
-import time
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from rich.console import Console
-from rich.layout import Layout
-from rich.live import Live
-from rich.markdown import Markdown
-from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
-from rich.text import Text
 from rich.theme import Theme
 
 custom_theme = Theme(
