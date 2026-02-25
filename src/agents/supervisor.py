@@ -22,13 +22,22 @@ Rules:
 Respond with ONLY one word: Researcher, Quant, or FINISH"""
 
 
-def create_supervisor_node(llm, members: list[str]) -> Callable:
+def create_supervisor_node(llm, members: list[str], max_rounds: int = 10) -> Callable:
     """
     Creates a Supervisor node with LLM-based routing + deterministic fallback.
+    Enforces max_rounds to prevent infinite loops.
     """
+    round_counter = {"count": 0}
 
     def supervisor_node(state: dict[str, Any]) -> dict[str, Any]:
         messages = state.get("messages", [])
+
+        # Safety: enforce max rounds
+        round_counter["count"] += 1
+        if round_counter["count"] > max_rounds:
+            log_agent_action("Supervisor", "Route", f"Decision: FINISH (max_rounds={max_rounds} reached)")
+            round_counter["count"] = 0
+            return {"messages": [], "next": "FINISH"}
 
         # Check if any agent already responded with substantive content
         has_agent_response = False
@@ -46,11 +55,13 @@ def create_supervisor_node(llm, members: list[str]) -> Callable:
         if has_agent_response:
             next_agent = "FINISH"
             log_agent_action("Supervisor", "Route", f"Decision: {next_agent} (agent responded)")
+            round_counter["count"] = 0
             return {"messages": [], "next": next_agent}
 
         if error_count >= 2:
             next_agent = "FINISH"
             log_agent_action("Supervisor", "Route", f"Decision: {next_agent} (repeated errors)")
+            round_counter["count"] = 0
             return {"messages": [], "next": next_agent}
 
         # Extract user question

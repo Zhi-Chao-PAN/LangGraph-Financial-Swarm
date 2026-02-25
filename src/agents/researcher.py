@@ -139,6 +139,11 @@ def create_researcher_node(llm) -> Callable[[AgentState], dict[str, Any]]:
                 "sender": "Researcher",
             }
 
+        # Input validation
+        if len(user_question) > 1000:
+            user_question = user_question[:1000]
+            log_agent_action("Researcher", "Truncate", "Query truncated to 1000 chars")
+
         from src.rag_adapter import adapter
 
         is_multi = _is_multi_entity_question(user_question)

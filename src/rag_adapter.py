@@ -117,8 +117,9 @@ class RAGAdapter:
     Adapter for LlamaIndex RAG with structure-aware chunking and caching.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, cache_ttl: int = 86400) -> None:
         self.cache = dc.Cache(settings.DATA_DIR / "rag_cache")
+        self.cache_ttl = cache_ttl  # seconds, default 24h
         self.index = None
         self.query_engine = None
         self._lock = asyncio.Lock()
@@ -166,7 +167,7 @@ class RAGAdapter:
 
         response = self.query_engine.query(question)
         result = self._format_result(response, question)
-        self.cache.set(question, result)
+        self.cache.set(question, result, expire=self.cache_ttl)
         return result
 
     async def _ensure_initialized(self):
@@ -198,7 +199,7 @@ class RAGAdapter:
             start = time.time()
             response = await _execute()
             result = self._format_result(response, question, time.time() - start)
-            await loop.run_in_executor(None, lambda: self.cache.set(question, result))
+            await loop.run_in_executor(None, lambda: self.cache.set(question, result, expire=self.cache_ttl))
             return result
         except Exception as e:
             msg = f"RAG query failed: {e}"
