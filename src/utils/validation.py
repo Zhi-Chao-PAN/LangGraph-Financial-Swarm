@@ -58,3 +58,31 @@ def sanitize_input(user_input: str) -> str:
     # Remove control characters but keep all printable Unicode
     return re.sub(r"[\x00-\x1f\x7f]", "", clean)
 
+
+def sanitize_rag_query(query: str) -> str:
+    """
+    Sanitize a query before sending to RAG pipeline.
+    Strips prompt injection patterns and normalizes whitespace.
+    """
+    clean = query.strip()
+
+    # Remove common prompt injection patterns
+    injection_patterns = [
+        r"ignore\s+(previous|above|all)\s+(instructions?|prompts?)",
+        r"you\s+are\s+now\s+",
+        r"system\s*:\s*",
+        r"<\|.*?\|>",
+        r"\[INST\].*?\[/INST\]",
+    ]
+    for pattern in injection_patterns:
+        clean = re.sub(pattern, "", clean, flags=re.IGNORECASE)
+
+    # Collapse whitespace
+    clean = re.sub(r"\s+", " ", clean).strip()
+
+    # Length limit for RAG queries
+    if len(clean) > 1000:
+        clean = clean[:1000]
+
+    return clean
+
