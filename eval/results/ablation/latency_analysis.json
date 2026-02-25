@@ -1,0 +1,210 @@
+{
+  "full": {
+    "mode": "full",
+    "total": 60,
+    "mean": 49.64416666666666,
+    "median": 8.97,
+    "stdev": 104.33527819278085,
+    "min": 5.23,
+    "max": 621.18,
+    "p95": 155.07,
+    "by_difficulty": {
+      "easy": {
+        "mean": 9.065,
+        "median": 7.29,
+        "p95": 42.43,
+        "count": 18
+      },
+      "medium": {
+        "mean": 33.10058823529412,
+        "median": 25.4,
+        "p95": 105.35,
+        "count": 17
+      },
+      "hard": {
+        "mean": 90.1108,
+        "median": 28.81,
+        "p95": 502.28,
+        "count": 25
+      }
+    },
+    "by_type": {
+      "single_hop": {
+        "mean": 9.065,
+        "median": 7.29,
+        "count": 18
+      },
+      "comparison": {
+        "mean": 40.91571428571429,
+        "median": 25.4,
+        "count": 21
+      },
+      "calculation": {
+        "mean": 84.54153846153845,
+        "median": 25.99,
+        "count": 13
+      },
+      "multi_hop": {
+        "mean": 107.15124999999999,
+        "median": 29.205,
+        "count": 8
+      }
+    }
+  },
+  "no_multiquery": {
+    "mode": "no_multiquery",
+    "total": 40,
+    "mean": 13.86375,
+    "median": 7.635,
+    "stdev": 12.958245110590935,
+    "min": 5.23,
+    "max": 65.01,
+    "p95": 45.82,
+    "by_difficulty": {
+      "easy": {
+        "mean": 8.587222222222222,
+        "median": 7.49,
+        "p95": 30.46,
+        "count": 18
+      },
+      "medium": {
+        "mean": 15.715,
+        "median": 17.615000000000002,
+        "p95": 25.82,
+        "count": 10
+      },
+      "hard": {
+        "mean": 20.235833333333336,
+        "median": 8.75,
+        "p95": 65.01,
+        "count": 12
+      }
+    },
+    "by_type": {
+      "single_hop": {
+        "mean": 8.587222222222222,
+        "median": 7.49,
+        "count": 18
+      },
+      "comparison": {
+        "mean": 21.206153846153846,
+        "median": 20.08,
+        "count": 13
+      },
+      "calculation": {
+        "mean": 17.29,
+        "median": 7.03,
+        "count": 6
+      },
+      "multi_hop": {
+        "mean": 6.8533333333333335,
+        "median": 6.45,
+        "count": 3
+      }
+    }
+  },
+  "no_rewrite": {
+    "mode": "no_rewrite",
+    "total": 40,
+    "mean": 11.83525,
+    "median": 7.545,
+    "stdev": 7.600788753773333,
+    "min": 5.24,
+    "max": 28.95,
+    "p95": 27.82,
+    "by_difficulty": {
+      "easy": {
+        "mean": 7.055555555555555,
+        "median": 7.35,
+        "p95": 8.95,
+        "count": 18
+      },
+      "medium": {
+        "mean": 18.791,
+        "median": 22.869999999999997,
+        "p95": 28.95,
+        "count": 10
+      },
+      "hard": {
+        "mean": 13.208333333333334,
+        "median": 10.205,
+        "p95": 27.82,
+        "count": 12
+      }
+    },
+    "by_type": {
+      "single_hop": {
+        "mean": 7.055555555555555,
+        "median": 7.35,
+        "count": 18
+      },
+      "comparison": {
+        "mean": 19.53153846153846,
+        "median": 21.28,
+        "count": 13
+      },
+      "calculation": {
+        "mean": 12.201666666666666,
+        "median": 9.850000000000001,
+        "count": 6
+      },
+      "multi_hop": {
+        "mean": 6.43,
+        "median": 6.53,
+        "count": 3
+      }
+    }
+  },
+  "no_structured": {
+    "mode": "no_structured",
+    "total": 40,
+    "mean": 80.73775,
+    "median": 52.18,
+    "stdev": 67.24684625099626,
+    "min": 29.04,
+    "max": 361.49,
+    "p95": 248.23,
+    "by_difficulty": {
+      "easy": {
+        "mean": 44.10388888888889,
+        "median": 43.76,
+        "p95": 70.45,
+        "count": 18
+      },
+      "medium": {
+        "mean": 107.697,
+        "median": 99.89,
+        "p95": 248.23,
+        "count": 10
+      },
+      "hard": {
+        "mean": 113.2225,
+        "median": 78.745,
+        "p95": 361.49,
+        "count": 12
+      }
+    },
+    "by_type": {
+      "single_hop": {
+        "mean": 44.10388888888889,
+        "median": 43.76,
+        "count": 18
+      },
+      "comparison": {
+        "mean": 118.90153846153846,
+        "median": 117.98,
+        "count": 13
+      },
+      "calculation": {
+        "mean": 116.70666666666666,
+        "median": 65.745,
+        "count": 6
+      },
+      "multi_hop": {
+        "mean": 63.22666666666667,
+        "median": 60.54,
+        "count": 3
+      }
+    }
+  }
+}
