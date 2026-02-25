@@ -224,6 +224,7 @@ def create_researcher_node(llm, conversation: Conversation | None = None) -> Cal
             final_answer = all_answers[0] if all_answers else "No answer found."
 
         # Retrieval verification: check if all entities are covered
+        missing = []
         if is_multi:
             missing = _verify_coverage(user_question, final_answer)
             if missing:
@@ -240,11 +241,60 @@ def create_researcher_node(llm, conversation: Conversation | None = None) -> Cal
                     except Exception:
                         pass
 
+        # Compute confidence score
+        confidence = _compute_confidence(
+            final_answer, all_sources, sub_queries, all_answers,
+            is_multi, missing if is_multi else [],
+        )
+        log_agent_action("Researcher", "Confidence", f"{confidence:.2f}")
         log_agent_action("Researcher", "Answer", final_answer[:200])
 
+        answer_with_meta = f"{final_answer}\n\n[Confidence: {confidence:.2f}]"
+
         return {
-            "messages": [AIMessage(content=final_answer)],
+            "messages": [AIMessage(content=answer_with_meta)],
             "sender": "Researcher",
         }
 
     return researcher_node
+
+
+def _compute_confidence(
+    answer: str,
+    sources: list,
+    sub_queries: list[str],
+    sub_answers: list[str],
+    is_multi: bool,
+    missing_entities: list[str],
+) -> float:
+    """
+    Compute confidence score (0.0-1.0) based on:
+    - Source count (more sources = higher confidence)
+    - Answer quality (no "not found" patterns)
+    - Entity coverage (all entities answered)
+    - Number presence (financial answers should have numbers)
+    """
+    score = 0.5  # base
+
+    NO_ANSWER_PATTERNS = [
+        "does not include", "not found", "no information",
+        "cannot find", "not available", "not provided",
+    ]
+
+    # Source count bonus (up to +0.2)
+    src_count = len(sources)
+    score += min(src_count / 10, 0.2)
+
+    # Answer quality (+0.15 if no "not found" patterns)
+    if not any(p in answer.lower() for p in NO_ANSWER_PATTERNS):
+        score += 0.15
+
+    # Entity coverage (+0.1 if all covered)
+    if is_multi and not missing_entities or not is_multi:
+        score += 0.1
+
+    # Number presence (+0.05 if answer contains numbers)
+    if re.search(r"\d+[,.]?\d*", answer):
+        score += 0.05
+
+    return min(score, 1.0)
