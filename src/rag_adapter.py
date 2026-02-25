@@ -26,7 +26,7 @@ def _parse_sections(text: str) -> List[Document]:
     for block in company_blocks:
         # Extract company name from first line
         first_line = block.strip().split('\n')[0]
-        company_match = re.match(r'^#\s+(.+?)(?:\s*[—\-–])', first_line)
+        company_match = re.match(r'^#\s+(.+?)(?:\s*[—\-–]|\s*$)', first_line)
         company_name = company_match.group(1).strip() if company_match else ""
 
         # Split into sections within this company block

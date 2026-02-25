@@ -36,7 +36,7 @@ def create_supervisor_node(llm, members: List[str]) -> Callable:
                 content = msg.content
                 if "Error" in content or "timed out" in content:
                     error_count += 1
-                elif len(content) > 20:
+                elif len(content) > 5:
                     has_agent_response = True
                     agent_response_count += 1
 

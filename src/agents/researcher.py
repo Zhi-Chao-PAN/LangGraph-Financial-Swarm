@@ -67,11 +67,18 @@ def create_researcher_node(llm) -> Callable[[AgentState], Dict[str, Any]]:
         from src.rag_adapter import adapter
 
         # Determine if query rewriting is needed
-        complex_indicators = ["compare", "vs", "versus", "and", "which company",
-                              "highest", "lowest", "between", "all three"]
-        needs_rewrite = any(ind in user_question.lower() for ind in complex_indicators)
+        complex_indicators = ["compare", "vs", "versus", "which company",
+                              "highest", "lowest", "between", "all three",
+                              "each company", "respectively"]
+        # "and" alone is too broad — only trigger if combined with company/entity context
+        has_multi_entity = any(ind in user_question.lower() for ind in complex_indicators)
+        if not has_multi_entity and " and " in user_question.lower():
+            # Only rewrite if "and" connects entities (heuristic: multiple company names)
+            company_names = ["nvidia", "apple", "microsoft"]
+            mentioned = sum(1 for c in company_names if c in user_question.lower())
+            has_multi_entity = mentioned >= 2
 
-        if needs_rewrite:
+        if has_multi_entity:
             sub_queries = _rewrite_query(llm, user_question)
             log_agent_action("Researcher", "Query Rewrite",
                              f"Original: {user_question} -> {len(sub_queries)} sub-queries")
@@ -121,7 +128,9 @@ def create_researcher_node(llm) -> Callable[[AgentState], Dict[str, Any]]:
                     f"Based on the following retrieved data, answer the original question.\n\n"
                     f"Original question: {user_question}\n\n"
                     f"Retrieved data:\n{combined_context}\n\n"
-                    f"Provide a clear, concise answer with specific numbers."
+                    f"IMPORTANT: Include ALL specific numbers from ALL sub-queries in your answer. "
+                    f"Do not omit any entity or data point. If the question asks about multiple "
+                    f"companies or metrics, list each one with its value."
                 )
                 response = llm.invoke([SystemMessage(content=synthesis_prompt)])
                 final_answer = re.sub(r"<think>.*?</think>", "", response.content, flags=re.DOTALL).strip()
