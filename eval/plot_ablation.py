@@ -15,6 +15,24 @@ import matplotlib
 matplotlib.use("Agg")
 import numpy as np
 
+# Academic style settings
+plt.rcParams.update({
+    'font.family': 'serif',
+    'font.size': 11,
+    'axes.labelsize': 12,
+    'axes.titlesize': 14,
+    'xtick.labelsize': 10,
+    'ytick.labelsize': 10,
+    'legend.fontsize': 9,
+    'figure.dpi': 150,
+    'savefig.dpi': 300,
+    'savefig.bbox': 'tight',
+    'axes.grid': True,
+    'grid.alpha': 0.3,
+    'axes.spines.top': False,
+    'axes.spines.right': False,
+})
+
 RESULTS_DIR = Path(__file__).parent / "results" / "ablation"
 OUTPUT_DIR = Path(__file__).parent / "results" / "ablation"
 
