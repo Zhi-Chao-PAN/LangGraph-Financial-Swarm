@@ -186,7 +186,7 @@ def create_researcher_node(llm) -> Callable[[AgentState], dict[str, Any]]:
                 all_answers.append(answer)
                 all_sources.extend(sources)
             except Exception as e:
-                log_agent_action("Researcher", "Error", f"RAG query failed: {e}")
+                log_agent_action("Researcher", "Error", f"RAG query failed: {e}", level="error")
                 all_answers.append(f"Error querying: {sq}")
 
         # Synthesize if multiple sub-queries
@@ -207,7 +207,7 @@ def create_researcher_node(llm) -> Callable[[AgentState], dict[str, Any]]:
                 final_answer = re.sub(r"<think>.*?</think>", "", response.content, flags=re.DOTALL).strip()
             except Exception as e:
                 final_answer = "\n\n".join(all_answers)
-                log_agent_action("Researcher", "Synthesis Failed", str(e)[:100])
+                log_agent_action("Researcher", "Synthesis Failed", str(e)[:100], level="warning")
         else:
             final_answer = all_answers[0] if all_answers else "No answer found."
 

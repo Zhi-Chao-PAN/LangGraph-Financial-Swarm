@@ -64,11 +64,21 @@ def async_retry_with_backoff(retries: int = 3, backoff_in_seconds: int = 1):
     return decorator
 
 
-def log_agent_action(agent_name: str, action: str, content: Any):
-    """Log significant agent actions for audit trails."""
+def log_agent_action(agent_name: str, action: str, content: Any, level: str = "info"):
+    """
+    Log significant agent actions for audit trails.
+
+    Args:
+        agent_name: Name of the agent (Supervisor, Researcher, Quant, etc.)
+        action: Action type (Route, RAG Query, Answer, Error, etc.)
+        content: Content preview
+        level: Log level (debug, info, warning, error)
+    """
     entry = {
         "agent": agent_name,
         "action": action,
         "content_preview": str(content)[:200] + "..." if len(str(content)) > 200 else str(content),
     }
-    logger.info(json.dumps(entry))
+    msg = json.dumps(entry)
+    log_fn = getattr(logger, level, logger.info)
+    log_fn(msg)
