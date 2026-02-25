@@ -88,11 +88,13 @@ def gen_main_table(all_metrics):
         lat = f"{m['latency']:.1f}"
         lines.append(f"{label} & {acc} & {ps} & {hall} & {lat} \\\\")
 
-    lines.extend([
-        r"\bottomrule",
-        r"\end{tabular}",
-        r"\end{table}",
-    ])
+    lines.extend(
+        [
+            r"\bottomrule",
+            r"\end{tabular}",
+            r"\end{table}",
+        ]
+    )
     return "\n".join(lines)
 
 
@@ -120,11 +122,13 @@ def gen_difficulty_table(all_metrics):
                 cells.append("--")
         lines.append(f"{label} & {' & '.join(cells)} \\\\")
 
-    lines.extend([
-        r"\bottomrule",
-        r"\end{tabular}",
-        r"\end{table}",
-    ])
+    lines.extend(
+        [
+            r"\bottomrule",
+            r"\end{tabular}",
+            r"\end{table}",
+        ]
+    )
     return "\n".join(lines)
 
 
@@ -152,11 +156,13 @@ def gen_type_table(all_metrics):
                 cells.append("--")
         lines.append(f"{label} & {' & '.join(cells)} \\\\")
 
-    lines.extend([
-        r"\bottomrule",
-        r"\end{tabular}",
-        r"\end{table}",
-    ])
+    lines.extend(
+        [
+            r"\bottomrule",
+            r"\end{tabular}",
+            r"\end{table}",
+        ]
+    )
     return "\n".join(lines)
 
 

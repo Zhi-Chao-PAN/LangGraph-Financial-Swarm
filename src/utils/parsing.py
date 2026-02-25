@@ -1,4 +1,3 @@
-
 import json
 from typing import Any
 
@@ -17,6 +16,7 @@ def robust_json_parse(json_str: str) -> dict | list | Any:
     # 1. First Priority: json5 (Professional standard for loose JSON)
     try:
         import json5
+
         return json5.loads(json_str)
     except (ImportError, Exception):
         pass
@@ -34,7 +34,7 @@ def robust_json_parse(json_str: str) -> dict | list | Any:
         cleaned = json_str.replace("True", "true").replace("False", "false").replace("None", "null")
         # heuristic: replace single quotes if no double quotes exist
         if "'" in cleaned and '"' not in cleaned:
-             cleaned = cleaned.replace("'", '"')
+            cleaned = cleaned.replace("'", '"')
         return json.loads(cleaned)
     except json.JSONDecodeError as err:
         raise ValueError(f"Failed to parse JSON content: {json_str[:50]}...") from err

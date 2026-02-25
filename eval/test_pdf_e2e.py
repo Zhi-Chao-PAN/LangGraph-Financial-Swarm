@@ -40,7 +40,7 @@ def main():
             print(f"[SKIP] {company}: no PDF found")
             continue
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"Parsing {company} 10-K: {latest}")
         print(f"File size: {latest.stat().st_size / 1024:.0f} KB")
 
@@ -107,7 +107,7 @@ def main():
         merged_size = merged_path.stat().st_size
         print(f"\nMerged file: {merged_path} ({merged_size / 1024:.0f} KB)")
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("Summary:")
     for company, r in results.items():
         print(f"  {company}: {r['chars']:,} chars, {r['tables']} tables, {r['sections']} sections")

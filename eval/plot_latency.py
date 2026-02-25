@@ -12,15 +12,17 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
-matplotlib.rcParams.update({
-    "font.family": "serif",
-    "font.size": 11,
-    "axes.labelsize": 12,
-    "axes.titlesize": 13,
-    "figure.dpi": 300,
-    "savefig.dpi": 300,
-    "savefig.bbox": "tight",
-})
+matplotlib.rcParams.update(
+    {
+        "font.family": "serif",
+        "font.size": 11,
+        "axes.labelsize": 12,
+        "axes.titlesize": 13,
+        "figure.dpi": 300,
+        "savefig.dpi": 300,
+        "savefig.bbox": "tight",
+    }
+)
 
 RESULTS_DIR = Path(__file__).parent / "results" / "ablation"
 OUTPUT_DIR = RESULTS_DIR
@@ -60,11 +62,9 @@ def plot_latency_by_mode(data: dict):
     ax.grid(axis="y", alpha=0.3)
 
     for bar in bars1:
-        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 1,
-                f"{bar.get_height():.1f}", ha="center", va="bottom", fontsize=9)
+        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 1, f"{bar.get_height():.1f}", ha="center", va="bottom", fontsize=9)
     for bar in bars2:
-        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 1,
-                f"{bar.get_height():.1f}", ha="center", va="bottom", fontsize=9)
+        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 1, f"{bar.get_height():.1f}", ha="center", va="bottom", fontsize=9)
 
     out = OUTPUT_DIR / "latency_by_mode.png"
     fig.savefig(out)
@@ -96,8 +96,7 @@ def plot_latency_by_type(data: dict):
                 vals.append(data[mode]["by_type"][qt]["mean"])
             else:
                 vals.append(0)
-        ax.bar(x + i * width, vals, width,
-               label=labels.get(mode, mode), color=colors[i % len(colors)])
+        ax.bar(x + i * width, vals, width, label=labels.get(mode, mode), color=colors[i % len(colors)])
 
     ax.set_ylabel("Mean Latency (seconds)")
     ax.set_title("Latency by Question Type")
@@ -136,8 +135,7 @@ def plot_latency_by_difficulty(data: dict):
                 vals.append(data[mode]["by_difficulty"][d]["mean"])
             else:
                 vals.append(0)
-        ax.bar(x + i * width, vals, width,
-               label=labels.get(mode, mode), color=colors[i % len(colors)])
+        ax.bar(x + i * width, vals, width, label=labels.get(mode, mode), color=colors[i % len(colors)])
 
     ax.set_ylabel("Mean Latency (seconds)")
     ax.set_title("Latency by Difficulty Level")

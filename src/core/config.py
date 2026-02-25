@@ -30,9 +30,7 @@ class Settings(BaseSettings):
     LOG_FILE: str = "agent_trace.log"
 
     # RAG Settings
-    RAG_DATA_PATH: Path = Field(
-        default_factory=lambda: Path.cwd() / "data" / "parsed" / "llamaparse" / "parsed.md"
-    )
+    RAG_DATA_PATH: Path = Field(default_factory=lambda: Path.cwd() / "data" / "parsed" / "llamaparse" / "parsed.md")
     RAG_TOP_K: int = 5
 
     # Optional Keys

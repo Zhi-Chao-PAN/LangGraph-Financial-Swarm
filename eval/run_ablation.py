@@ -47,6 +47,7 @@ def load_benchmark():
 
 # ── Answer checking (same as run_eval.py) ──────────────────────────
 
+
 def _extract_numbers(text: str) -> list[float]:
     clean = text.replace(",", "").replace("$", "").replace("(", "-").replace(")", "")
     raw = re.findall(r"-?[\d]+\.?\d*%?", clean)
@@ -73,10 +74,23 @@ def _approx_match(a: float, b: float, tol: float = 0.05) -> bool:
 def _extract_entities(text: str) -> set[str]:
     entities = set()
     lower = text.lower()
-    for name in ["data center", "gaming", "automotive", "professional visualization",
-                 "united states", "china", "taiwan", "singapore",
-                 "nvidia", "apple", "microsoft",
-                 "intelligent cloud", "iphone", "mac", "services"]:
+    for name in [
+        "data center",
+        "gaming",
+        "automotive",
+        "professional visualization",
+        "united states",
+        "china",
+        "taiwan",
+        "singapore",
+        "nvidia",
+        "apple",
+        "microsoft",
+        "intelligent cloud",
+        "iphone",
+        "mac",
+        "services",
+    ]:
         if name in lower:
             entities.add(name)
     for m in re.finditer(r"fy\d{4}", lower):
@@ -128,8 +142,7 @@ def check_answer(predicted: str, ground_truth: str) -> dict:
     if entity_overlap >= 0.8 and len(gt_nums) <= 1:
         partial_score = max(partial_score, 0.6)
     correct = partial_score >= 0.45
-    is_hallucination = (number_score == 0 and entity_overlap < 0.3
-                        and len(pred_lower) > 50 and "error" not in pred_lower)
+    is_hallucination = number_score == 0 and entity_overlap < 0.3 and len(pred_lower) > 50 and "error" not in pred_lower
     reasons = []
     if number_score == 1.0:
         reasons.append(f"All {len(gt_nums)} numbers matched")
@@ -151,6 +164,7 @@ def check_answer(predicted: str, ground_truth: str) -> dict:
 
 
 # ── Ablation RAG Adapter (naive chunking) ──────────────────────────
+
 
 class NaiveRAGAdapter:
     """RAG with SentenceSplitter instead of structure-aware chunking."""
@@ -177,7 +191,7 @@ class NaiveRAGAdapter:
         )
 
         data_path = settings.RAG_DATA_PATH
-        with open(data_path, encoding='utf-8') as f:
+        with open(data_path, encoding="utf-8") as f:
             raw_text = f.read()
 
         # Naive: just split by sentences, no structure awareness
@@ -211,6 +225,7 @@ class NaiveRAGAdapter:
 
 # ── Ablation Researcher Variants ───────────────────────────────────
 
+
 def create_researcher_no_rewrite(llm) -> Callable:
     """Researcher without query rewriting — always uses original question."""
     from langchain_core.messages import AIMessage
@@ -231,6 +246,7 @@ def create_researcher_no_rewrite(llm) -> Callable:
             return {"messages": [AIMessage(content="No question found.")], "sender": "Researcher"}
 
         from src.rag_adapter import adapter
+
         log_agent_action("Researcher[no_rewrite]", "RAG Query", f"Q: {user_question}")
         try:
             result = adapter.query(user_question)
@@ -269,8 +285,7 @@ def create_researcher_no_multiquery(llm) -> Callable:
         from src.rag_adapter import adapter
 
         # Still rewrite, but only use the FIRST sub-query (no multi-query merge)
-        complex_indicators = ["compare", "vs", "versus", "and", "which company",
-                              "highest", "lowest", "between", "all three"]
+        complex_indicators = ["compare", "vs", "versus", "and", "which company", "highest", "lowest", "between", "all three"]
         needs_rewrite = any(ind in user_question.lower() for ind in complex_indicators)
 
         if needs_rewrite:
@@ -315,8 +330,7 @@ def create_researcher_no_structured(llm) -> Callable:
         if not user_question:
             return {"messages": [AIMessage(content="No question found.")], "sender": "Researcher"}
 
-        complex_indicators = ["compare", "vs", "versus", "and", "which company",
-                              "highest", "lowest", "between", "all three"]
+        complex_indicators = ["compare", "vs", "versus", "and", "which company", "highest", "lowest", "between", "all three"]
         needs_rewrite = any(ind in user_question.lower() for ind in complex_indicators)
 
         if needs_rewrite:
@@ -335,9 +349,7 @@ def create_researcher_no_structured(llm) -> Callable:
                 all_answers.append(f"Error: {e}")
 
         if len(sub_queries) > 1 and len(all_answers) > 1:
-            combined = "\n\n".join(
-                f"[Sub-query: {sq}]\n{ans}" for sq, ans in zip(sub_queries, all_answers, strict=False)
-            )
+            combined = "\n\n".join(f"[Sub-query: {sq}]\n{ans}" for sq, ans in zip(sub_queries, all_answers, strict=False))
             try:
                 prompt = (
                     f"Based on the following retrieved data, answer the original question.\n\n"
@@ -361,6 +373,7 @@ def create_researcher_no_structured(llm) -> Callable:
 
 
 # ── Graph Builder ───────────────────────────────────────────────────
+
 
 def build_graph(llm, researcher_factory: Callable):
     """Build the LangGraph workflow with a given researcher variant."""
@@ -394,10 +407,12 @@ def build_graph(llm, researcher_factory: Callable):
 
 # ── Run One Ablation ────────────────────────────────────────────────
 
+
 async def run_ablation(llm, questions: list, mode: str) -> list:
     """Run evaluation for a specific ablation mode."""
     # Clear RAG cache to avoid cross-contamination
     import diskcache as dc
+
     settings.DATA_DIR / "rag_cache"
     if mode != "full":
         # Use separate cache per ablation mode
@@ -406,6 +421,7 @@ async def run_ablation(llm, questions: list, mode: str) -> list:
     # Select researcher variant
     if mode == "full":
         from src.agents.researcher import create_researcher_node
+
         researcher_factory = create_researcher_node
     elif mode == "no_rewrite":
         researcher_factory = create_researcher_no_rewrite
@@ -433,20 +449,23 @@ async def run_ablation(llm, questions: list, mode: str) -> list:
         latency = time.time() - start
 
         check = check_answer(answer, q["answer"])
-        results.append({
-            "id": q["id"],
-            "question": q["question"],
-            "ground_truth": q["answer"],
-            "predicted": answer[:500],
-            "difficulty": q.get("difficulty", "unknown"),
-            "type": q.get("type", "unknown"),
-            "latency_s": round(latency, 2),
-            **check,
-        })
+        results.append(
+            {
+                "id": q["id"],
+                "question": q["question"],
+                "ground_truth": q["answer"],
+                "predicted": answer[:500],
+                "difficulty": q.get("difficulty", "unknown"),
+                "type": q.get("type", "unknown"),
+                "latency_s": round(latency, 2),
+                **check,
+            }
+        )
     return results
 
 
 # ── Summary & Comparison ───────────────────────────────────────────
+
 
 def print_summary(name: str, results: list):
     total = len(results)
@@ -459,9 +478,9 @@ def print_summary(name: str, results: list):
     table.add_column("Metric", style="bold")
     table.add_column("Value", justify="right")
 
-    table.add_row("Accuracy", f"{correct}/{total} ({100*correct/total:.1f}%)")
+    table.add_row("Accuracy", f"{correct}/{total} ({100 * correct / total:.1f}%)")
     table.add_row("Avg Partial Score", f"{avg_partial:.3f}")
-    table.add_row("Hallucination Rate", f"{hallucinated}/{total} ({100*hallucinated/total:.1f}%)")
+    table.add_row("Hallucination Rate", f"{hallucinated}/{total} ({100 * hallucinated / total:.1f}%)")
     table.add_row("Avg Latency", f"{avg_latency:.2f}s")
 
     for diff in ["easy", "medium", "hard"]:
@@ -510,11 +529,13 @@ def print_comparison(all_results: dict[str, list]):
 
         table.add_row(
             mode,
-            f"{correct}/{total} ({100*correct/total:.1f}%)",
+            f"{correct}/{total} ({100 * correct / total:.1f}%)",
             f"{avg_ps:.3f}",
-            f"{hall}/{total} ({100*hall/total:.1f}%)",
+            f"{hall}/{total} ({100 * hall / total:.1f}%)",
             f"{avg_lat:.1f}s",
-            e_acc, m_acc, h_acc,
+            e_acc,
+            m_acc,
+            h_acc,
         )
 
     console.print(table)
@@ -588,7 +609,7 @@ async def main():
 
     questions = load_benchmark()
     if args.limit > 0:
-        questions = questions[:args.limit]
+        questions = questions[: args.limit]
 
     modes = ABLATION_MODES if args.mode == "all" else [args.mode]
 

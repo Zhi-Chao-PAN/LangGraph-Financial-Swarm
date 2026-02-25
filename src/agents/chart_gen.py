@@ -72,6 +72,7 @@ def create_quant_node(llm) -> Callable[[AgentState], dict[str, Any]]:
             json_match = re.search(r"\{.*\}", content, re.DOTALL)
             if json_match:
                 from src.tools.plot_tool import create_plot
+
                 params = json.loads(json_match.group())
 
                 log_agent_action("Quant", "Chart", f"Type: {params.get('plot_type', 'bar')}, Title: {params.get('title', 'N/A')}")

@@ -29,11 +29,13 @@ def _extract_tables_from_page(page: fitz.Page) -> list[dict]:
         for tab in tab_finder.tables:
             rows = tab.extract()
             if rows and len(rows) > 1:
-                tables.append({
-                    "headers": rows[0],
-                    "rows": rows[1:],
-                    "bbox": tab.bbox,
-                })
+                tables.append(
+                    {
+                        "headers": rows[0],
+                        "rows": rows[1:],
+                        "bbox": tab.bbox,
+                    }
+                )
     except Exception:
         pass
     return tables
@@ -56,7 +58,7 @@ def _table_to_markdown(table: dict) -> str:
     for row in rows:
         # Pad row to match header length
         padded = list(row) + [""] * (len(headers) - len(row))
-        row_lines.append("| " + " | ".join(clean(c) for c in padded[:len(headers)]) + " |")
+        row_lines.append("| " + " | ".join(clean(c) for c in padded[: len(headers)]) + " |")
 
     return "\n".join([header_line, sep_line] + row_lines)
 
@@ -111,8 +113,7 @@ def _detect_section_headers(text: str) -> str:
                 break
         if not is_header:
             # Detect ALL CAPS lines as potential headers
-            if (stripped.isupper() and len(stripped) > 5 and len(stripped) < 100
-                    and not stripped.startswith("|")):
+            if stripped.isupper() and len(stripped) > 5 and len(stripped) < 100 and not stripped.startswith("|"):
                 result.append(f"\n## {stripped.title()}\n")
             else:
                 result.append(stripped)

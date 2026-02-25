@@ -62,8 +62,7 @@ def create_plot(data_str: str, plot_type: str, title: str, xlabel: str, ylabel: 
         if plot_type == "pie":
             values = df[col_y].astype(float)
             labels = df[col_x].astype(str)
-            ax.pie(values, labels=labels, autopct="%1.1f%%",
-                   colors=COLORS[:len(values)], startangle=90)
+            ax.pie(values, labels=labels, autopct="%1.1f%%", colors=COLORS[: len(values)], startangle=90)
             ax.set_ylabel("")
 
         elif plot_type == "stacked_bar":
@@ -73,8 +72,7 @@ def create_plot(data_str: str, plot_type: str, title: str, xlabel: str, ylabel: 
             x_pos = range(len(categories))
             for i, vc in enumerate(value_cols):
                 vals = df[vc].astype(float).tolist()
-                ax.bar(x_pos, vals, bottom=bottom, label=vc,
-                       color=COLORS[i % len(COLORS)])
+                ax.bar(x_pos, vals, bottom=bottom, label=vc, color=COLORS[i % len(COLORS)])
                 bottom = [b + v for b, v in zip(bottom, vals, strict=False)]
             ax.set_xticks(list(x_pos))
             ax.set_xticklabels(categories, rotation=45, ha="right")
@@ -90,10 +88,7 @@ def create_plot(data_str: str, plot_type: str, title: str, xlabel: str, ylabel: 
                 width = 0.8 / len(value_cols)
                 for i, vc in enumerate(value_cols):
                     offset = (i - len(value_cols) / 2 + 0.5) * width
-                    ax.bar([p + offset for p in x_pos],
-                           df[vc].astype(float).tolist(),
-                           width=width, label=vc,
-                           color=COLORS[i % len(COLORS)])
+                    ax.bar([p + offset for p in x_pos], df[vc].astype(float).tolist(), width=width, label=vc, color=COLORS[i % len(COLORS)])
                 ax.set_xticks(x_pos)
                 ax.set_xticklabels(categories, rotation=45, ha="right")
                 ax.legend(fontsize=9)
@@ -108,18 +103,15 @@ def create_plot(data_str: str, plot_type: str, title: str, xlabel: str, ylabel: 
             x_vals = df[col_x].astype(str).tolist()
             if len(df.columns) >= 3:
                 for i, vc in enumerate(df.columns[1:]):
-                    ax.plot(x_vals, df[vc].astype(float).tolist(),
-                            marker="o", label=vc, color=COLORS[i % len(COLORS)])
+                    ax.plot(x_vals, df[vc].astype(float).tolist(), marker="o", label=vc, color=COLORS[i % len(COLORS)])
                 ax.legend(fontsize=9)
             else:
-                ax.plot(x_vals, df[col_y].astype(float).tolist(),
-                        marker="o", color=COLORS[0])
+                ax.plot(x_vals, df[col_y].astype(float).tolist(), marker="o", color=COLORS[0])
             ax.set_xlabel(xlabel)
             ax.set_ylabel(ylabel)
 
         elif plot_type == "scatter":
-            ax.scatter(df[col_x].astype(float), df[col_y].astype(float),
-                       s=100, color=COLORS[0])
+            ax.scatter(df[col_x].astype(float), df[col_y].astype(float), s=100, color=COLORS[0])
             ax.set_xlabel(xlabel)
             ax.set_ylabel(ylabel)
 

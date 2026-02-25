@@ -85,4 +85,3 @@ def sanitize_rag_query(query: str) -> str:
         clean = clean[:1000]
 
     return clean
-

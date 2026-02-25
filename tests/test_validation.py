@@ -1,7 +1,5 @@
 """Tests for input validation and sanitization."""
 
-import pytest
-
 from src.utils.validation import sanitize_input, sanitize_rag_query
 
 

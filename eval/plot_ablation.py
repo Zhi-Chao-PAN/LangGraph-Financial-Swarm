@@ -17,22 +17,24 @@ matplotlib.use("Agg")
 import numpy as np
 
 # Academic style settings
-plt.rcParams.update({
-    'font.family': 'serif',
-    'font.size': 11,
-    'axes.labelsize': 12,
-    'axes.titlesize': 14,
-    'xtick.labelsize': 10,
-    'ytick.labelsize': 10,
-    'legend.fontsize': 9,
-    'figure.dpi': 150,
-    'savefig.dpi': 300,
-    'savefig.bbox': 'tight',
-    'axes.grid': True,
-    'grid.alpha': 0.3,
-    'axes.spines.top': False,
-    'axes.spines.right': False,
-})
+plt.rcParams.update(
+    {
+        "font.family": "serif",
+        "font.size": 11,
+        "axes.labelsize": 12,
+        "axes.titlesize": 14,
+        "xtick.labelsize": 10,
+        "ytick.labelsize": 10,
+        "legend.fontsize": 9,
+        "figure.dpi": 150,
+        "savefig.dpi": 300,
+        "savefig.bbox": "tight",
+        "axes.grid": True,
+        "grid.alpha": 0.3,
+        "axes.spines.top": False,
+        "axes.spines.right": False,
+    }
+)
 
 RESULTS_DIR = Path(__file__).parent / "results" / "ablation"
 OUTPUT_DIR = Path(__file__).parent / "results" / "ablation"
@@ -98,8 +100,7 @@ def plot_accuracy_comparison(all_metrics):
     bars = ax.bar(labels, accs, color=colors, edgecolor="white", linewidth=1.5)
 
     for bar, acc in zip(bars, accs, strict=False):
-        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 1,
-                f"{acc:.1f}%", ha="center", va="bottom", fontweight="bold", fontsize=12)
+        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 1, f"{acc:.1f}%", ha="center", va="bottom", fontweight="bold", fontsize=12)
 
     ax.set_ylabel("Accuracy (%)", fontsize=12)
     ax.set_title("Ablation Study: Component Contribution to Accuracy", fontsize=14, fontweight="bold")
@@ -131,8 +132,7 @@ def plot_difficulty_breakdown(all_metrics):
             else:
                 accs.append(0)
         offset = (i - len(modes) / 2 + 0.5) * width
-        ax.bar(x + offset, accs, width, label=MODE_LABELS.get(mode, mode),
-                      color=COLORS.get(mode, "#999"), edgecolor="white")
+        ax.bar(x + offset, accs, width, label=MODE_LABELS.get(mode, mode), color=COLORS.get(mode, "#999"), edgecolor="white")
 
     ax.set_ylabel("Accuracy (%)", fontsize=12)
     ax.set_title("Ablation: Accuracy by Difficulty Level", fontsize=14, fontweight="bold")
@@ -161,8 +161,7 @@ def plot_partial_score(all_metrics):
     bars = ax.bar(labels, scores, color=colors, edgecolor="white", linewidth=1.5)
 
     for bar, s in zip(bars, scores, strict=False):
-        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.01,
-                f"{s:.3f}", ha="center", va="bottom", fontweight="bold", fontsize=12)
+        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.01, f"{s:.3f}", ha="center", va="bottom", fontweight="bold", fontsize=12)
 
     ax.set_ylabel("Avg Partial Score", fontsize=12)
     ax.set_title("Ablation Study: Partial Score Comparison", fontsize=14, fontweight="bold")

@@ -14,6 +14,7 @@ from typing import Any
 @dataclass
 class Turn:
     """A single conversation turn."""
+
     role: str  # "user" or "assistant"
     content: str
     timestamp: float = field(default_factory=time.time)
@@ -23,6 +24,7 @@ class Turn:
 @dataclass
 class Conversation:
     """A conversation session with history."""
+
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     turns: list[Turn] = field(default_factory=list)
     created_at: float = field(default_factory=time.time)
@@ -32,7 +34,7 @@ class Conversation:
         """Add a turn, evicting oldest if over max."""
         self.turns.append(Turn(role=role, content=content, metadata=metadata))
         if len(self.turns) > self.max_turns:
-            self.turns = self.turns[-self.max_turns:]
+            self.turns = self.turns[-self.max_turns :]
 
     def get_context(self, last_n: int = 5) -> str:
         """Get recent conversation context as formatted string."""
@@ -74,13 +76,28 @@ class Conversation:
 
 # Follow-up detection keywords/patterns
 _FOLLOWUP_INDICATORS = [
-    "what about", "how about", "and for", "also",
-    "compared to", "versus", "vs", "same for",
-    "what was it", "how much was it",
-    "the same", "that company", "their",
-    "last year", "previous year", "next year",
-    "why", "explain", "elaborate", "more detail",
-    "break it down", "break down",
+    "what about",
+    "how about",
+    "and for",
+    "also",
+    "compared to",
+    "versus",
+    "vs",
+    "same for",
+    "what was it",
+    "how much was it",
+    "the same",
+    "that company",
+    "their",
+    "last year",
+    "previous year",
+    "next year",
+    "why",
+    "explain",
+    "elaborate",
+    "more detail",
+    "break it down",
+    "break down",
 ]
 
 _PRONOUN_REFS = ["it", "they", "them", "its", "their", "this", "that", "those", "these"]
@@ -112,10 +129,7 @@ def is_followup(question: str, conversation: Conversation) -> bool:
         return True
 
     # Very short question (< 5 words) after existing conversation
-    if len(q_lower.split()) < 5 and conversation.turn_count >= 2:
-        return True
-
-    return False
+    return len(q_lower.split()) < 5 and conversation.turn_count >= 2
 
 
 def resolve_followup(question: str, conversation: Conversation) -> str:
@@ -128,10 +142,7 @@ def resolve_followup(question: str, conversation: Conversation) -> str:
         return question
 
     context = conversation.get_context(last_n=3)
-    return (
-        f"[Conversation context]\n{context}\n\n"
-        f"[Current question]\n{question}"
-    )
+    return f"[Conversation context]\n{context}\n\n[Current question]\n{question}"
 
 
 class ConversationManager:

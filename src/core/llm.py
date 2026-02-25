@@ -3,7 +3,6 @@ Drop-in replacement for ChatOllama that uses requests directly.
 Workaround for ollama Python client 502 bug with older Ollama versions.
 """
 
-
 import requests
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage

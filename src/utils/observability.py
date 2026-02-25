@@ -6,15 +6,17 @@ from rich.panel import Panel
 from rich.text import Text
 from rich.theme import Theme
 
-custom_theme = Theme({
-    "info": "dim cyan",
-    "warning": "magenta",
-    "danger": "bold red",
-    "supervisor": "bold purple",
-    "researcher": "bold blue",
-    "quant": "bold green",
-    "system": "dim white"
-})
+custom_theme = Theme(
+    {
+        "info": "dim cyan",
+        "warning": "magenta",
+        "danger": "bold red",
+        "supervisor": "bold purple",
+        "researcher": "bold blue",
+        "quant": "bold green",
+        "system": "dim white",
+    }
+)
 
 console = Console(theme=custom_theme)
 

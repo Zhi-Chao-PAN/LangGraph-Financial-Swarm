@@ -1,6 +1,5 @@
 """Tests for conversation memory and follow-up detection."""
 
-
 from src.core.conversation import (
     Conversation,
     ConversationManager,
@@ -75,9 +74,7 @@ class TestFollowupDetection:
         assert not is_followup("What is NVIDIA revenue?", empty)
 
     def test_not_followup_explicit(self):
-        assert not is_followup(
-            "What was Apple total revenue in fiscal year 2023?", self.conv
-        )
+        assert not is_followup("What was Apple total revenue in fiscal year 2023?", self.conv)
 
     def test_comparison_followup(self):
         assert is_followup("Compared to Microsoft?", self.conv)
@@ -117,8 +114,8 @@ class TestConversationManager:
     def test_eviction(self):
         mgr = ConversationManager(max_conversations=2)
         c1 = mgr.get_or_create()
-        c2 = mgr.get_or_create()
-        c3 = mgr.get_or_create()
+        _c2 = mgr.get_or_create()
+        _c3 = mgr.get_or_create()
         assert mgr.active_count == 2
         assert mgr.get(c1.id) is None  # evicted
 

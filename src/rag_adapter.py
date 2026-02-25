@@ -28,28 +28,25 @@ def _parse_sections(text: str) -> list[Document]:
     Each section (with its tables) becomes a separate Document with metadata.
     Company name is extracted from # headers and injected into every chunk.
     """
-    company_blocks = re.split(r'\n(?=# [A-Z])', text)
+    company_blocks = re.split(r"\n(?=# [A-Z])", text)
     documents = []
 
     for block in company_blocks:
-        first_line = block.strip().split('\n')[0]
-        company_match = re.match(r'^#\s+(.+?)(?:\s*[—\-–]|\s*$)', first_line)
+        first_line = block.strip().split("\n")[0]
+        company_match = re.match(r"^#\s+(.+?)(?:\s*[—\-–]|\s*$)", first_line)
         company_name = company_match.group(1).strip() if company_match else ""
 
-        sections = re.split(r'\n## ', block)
+        sections = re.split(r"\n## ", block)
 
         for i, section in enumerate(sections):
             if i == 0:
                 if section.strip():
-                    documents.append(Document(
-                        text=section.strip(),
-                        metadata={"company": company_name, "section": "header", "index": len(documents)}
-                    ))
+                    documents.append(Document(text=section.strip(), metadata={"company": company_name, "section": "header", "index": len(documents)}))
                 continue
 
             section_text = "## " + section
-            lines = section_text.split('\n')
-            section_title = lines[0].replace('##', '').strip()
+            lines = section_text.split("\n")
+            section_title = lines[0].replace("##", "").strip()
             company_prefix = f"[{company_name}] " if company_name else ""
 
             table_lines = []
@@ -57,26 +54,28 @@ def _parse_sections(text: str) -> list[Document]:
             in_table = False
 
             for line in lines[1:]:
-                if '|' in line and '--' not in line:
+                if "|" in line and "--" not in line:
                     in_table = True
                     table_lines.append(line)
-                elif in_table and '|' not in line:
+                elif in_table and "|" not in line:
                     if table_lines:
-                        table_text = f"{company_prefix}## {section_title}\n\n" + '\n'.join(table_lines)
-                        documents.append(Document(
-                            text=table_text,
-                            metadata={
-                                "company": company_name,
-                                "section": section_title,
-                                "type": "table",
-                                "index": len(documents),
-                            }
-                        ))
+                        table_text = f"{company_prefix}## {section_title}\n\n" + "\n".join(table_lines)
+                        documents.append(
+                            Document(
+                                text=table_text,
+                                metadata={
+                                    "company": company_name,
+                                    "section": section_title,
+                                    "type": "table",
+                                    "index": len(documents),
+                                },
+                            )
+                        )
                         table_lines = []
                     in_table = False
                     if line.strip():
                         non_table_lines.append(line)
-                elif '---' in line:
+                elif "---" in line:
                     continue
                 else:
                     if in_table:
@@ -85,28 +84,32 @@ def _parse_sections(text: str) -> list[Document]:
                         non_table_lines.append(line)
 
             if table_lines:
-                table_text = f"{company_prefix}## {section_title}\n\n" + '\n'.join(table_lines)
-                documents.append(Document(
-                    text=table_text,
-                    metadata={
-                        "company": company_name,
-                        "section": section_title,
-                        "type": "table",
-                        "index": len(documents),
-                    }
-                ))
+                table_text = f"{company_prefix}## {section_title}\n\n" + "\n".join(table_lines)
+                documents.append(
+                    Document(
+                        text=table_text,
+                        metadata={
+                            "company": company_name,
+                            "section": section_title,
+                            "type": "table",
+                            "index": len(documents),
+                        },
+                    )
+                )
 
             if non_table_lines:
-                nt_text = f"{company_prefix}## {section_title}\n\n" + '\n'.join(non_table_lines)
-                documents.append(Document(
-                    text=nt_text,
-                    metadata={
-                        "company": company_name,
-                        "section": section_title,
-                        "type": "text",
-                        "index": len(documents),
-                    }
-                ))
+                nt_text = f"{company_prefix}## {section_title}\n\n" + "\n".join(non_table_lines)
+                documents.append(
+                    Document(
+                        text=nt_text,
+                        metadata={
+                            "company": company_name,
+                            "section": section_title,
+                            "type": "text",
+                            "index": len(documents),
+                        },
+                    )
+                )
 
     log_agent_action("RAGAdapter", "Parse", f"Created {len(documents)} structured chunks")
     return documents
@@ -114,7 +117,7 @@ def _parse_sections(text: str) -> list[Document]:
 
 def _tokenize(text: str) -> list[str]:
     """Simple tokenizer for BM25: lowercase, split on non-alphanumeric."""
-    return re.findall(r'[a-z0-9]+(?:\.[0-9]+)?', text.lower())
+    return re.findall(r"[a-z0-9]+(?:\.[0-9]+)?", text.lower())
 
 
 def _reciprocal_rank_fusion(
@@ -188,7 +191,7 @@ class RAGAdapter:
         if not os.path.exists(data_path):
             raise FileNotFoundError(f"RAG data not found at {data_path}")
 
-        with open(data_path, encoding='utf-8') as f:
+        with open(data_path, encoding="utf-8") as f:
             raw_text = f.read()
 
         self._documents = _parse_sections(raw_text)
@@ -252,7 +255,6 @@ class RAGAdapter:
 
         if hybrid_docs:
             context = "\n\n".join(doc.text for doc in hybrid_docs)
-            from langchain_core.messages import SystemMessage
             try:
                 prompt = (
                     f"Answer the following financial question using ONLY the provided context. "
@@ -277,7 +279,7 @@ class RAGAdapter:
                 content = doc.text[:150]
                 sources.append(f"[{section}]: {content}...")
 
-            citation_str = "\n".join([f"[Source {i+1}] {s}" for i, s in enumerate(sources)])
+            citation_str = "\n".join([f"[Source {i + 1}] {s}" for i, s in enumerate(sources)])
             result = {
                 "model_answer": answer_text + f"\n\n**Citations**:\n{citation_str}",
                 "source_nodes": [doc.text for doc in hybrid_docs],
@@ -334,14 +336,11 @@ class RAGAdapter:
                 content = node.node.get_content()[:150]
                 sources.append(f"[{section}]: {content}...")
 
-        citation_str = "\n".join([f"[Source {i+1}] {s}" for i, s in enumerate(sources)])
+        citation_str = "\n".join([f"[Source {i + 1}] {s}" for i, s in enumerate(sources)])
 
         result = {
             "model_answer": str(response) + f"\n\n**Citations**:\n{citation_str}",
-            "source_nodes": [
-                node.node.get_content()
-                for node in response.source_nodes
-            ] if hasattr(response, "source_nodes") else [],
+            "source_nodes": [node.node.get_content() for node in response.source_nodes] if hasattr(response, "source_nodes") else [],
             "latency_s": latency,
         }
         log_agent_action("RAGAdapter", "Query", f"Q: {question}")

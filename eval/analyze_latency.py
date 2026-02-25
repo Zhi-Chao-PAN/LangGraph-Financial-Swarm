@@ -69,10 +69,7 @@ def main():
     print(f"{'Mode':<20} {'N':>4} {'Mean':>8} {'Median':>8} {'P95':>8} {'Min':>8} {'Max':>8}")
     print("-" * 72)
     for mode, s in all_stats.items():
-        print(
-            f"{mode:<20} {s['total']:>4} {s['mean']:>8.1f} {s['median']:>8.1f}"
-            f" {s['p95']:>8.1f} {s['min']:>8.1f} {s['max']:>8.1f}"
-        )
+        print(f"{mode:<20} {s['total']:>4} {s['mean']:>8.1f} {s['median']:>8.1f} {s['p95']:>8.1f} {s['min']:>8.1f} {s['max']:>8.1f}")
 
     # Breakdown by difficulty
     print("\nBy Difficulty:")

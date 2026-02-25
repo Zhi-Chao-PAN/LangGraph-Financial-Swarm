@@ -97,10 +97,12 @@ def _llm_route(llm, question: str, members: list[str]) -> str | None:
     if not question:
         return None
     try:
-        response = llm.invoke([
-            SystemMessage(content=ROUTING_PROMPT),
-            HumanMessage(content=question),
-        ])
+        response = llm.invoke(
+            [
+                SystemMessage(content=ROUTING_PROMPT),
+                HumanMessage(content=question),
+            ]
+        )
         return _parse_routing(response.content, members)
     except Exception as e:
         log_agent_action("Supervisor", "LLM Route Failed", str(e)[:100])

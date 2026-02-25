@@ -17,6 +17,7 @@ from src.utils.validation import sanitize_input
 
 # ─── Config ───
 
+
 class TestConfig:
     def test_config_loading(self):
         assert settings.LLM_MODEL is not None
@@ -33,6 +34,7 @@ class TestConfig:
 
 
 # ─── Supervisor Routing ───
+
 
 class TestSupervisorRouting:
     def test_parse_next_researcher(self):
@@ -91,14 +93,19 @@ class TestSupervisorRouting:
         """Agent already responded -> FINISH."""
         mock_llm = MagicMock()
         supervisor = create_supervisor_node(mock_llm, ["Researcher", "Quant"])
-        result = supervisor({"messages": [
-            ("user", "What is revenue?"),
-            AIMessage(content="Revenue is $130,497M. Citations: source1"),
-        ]})
+        result = supervisor(
+            {
+                "messages": [
+                    ("user", "What is revenue?"),
+                    AIMessage(content="Revenue is $130,497M. Citations: source1"),
+                ]
+            }
+        )
         assert result["next"] == "FINISH"
 
 
 # ─── Sanitize Input ───
+
 
 class TestSanitizeInput:
     def test_basic(self):
@@ -116,6 +123,7 @@ class TestSanitizeInput:
 
 
 # ─── Eval: Number Extraction ───
+
 
 class TestNumberExtraction:
     def test_basic_number(self):
@@ -145,6 +153,7 @@ class TestNumberExtraction:
 
 # ─── Eval: Approximate Matching ───
 
+
 class TestApproxMatch:
     def test_exact(self):
         assert _approx_match(67.0, 67.0)
@@ -167,6 +176,7 @@ class TestApproxMatch:
 
 # ─── Eval: check_answer ───
 
+
 class TestCheckAnswer:
     def test_exact_match(self):
         r = check_answer("130,497", "130,497")
@@ -186,28 +196,20 @@ class TestCheckAnswer:
         assert r["correct"]
 
     def test_hallucination(self):
-        r = check_answer(
-            "Based on my analysis the revenue was approximately 500 billion dollars in the fiscal year",
-            "130,497"
-        )
+        r = check_answer("Based on my analysis the revenue was approximately 500 billion dollars in the fiscal year", "130,497")
         assert r["hallucination"]
 
     def test_growth_synonyms(self):
-        r = check_answer(
-            "NVIDIA Data Center revenue grew by 667.8%",
-            "From $15,005M to $115,199M, approximately 668% growth"
-        )
+        r = check_answer("NVIDIA Data Center revenue grew by 667.8%", "From $15,005M to $115,199M, approximately 668% growth")
         assert r["correct"]
 
     def test_debt_equity(self):
-        r = check_answer(
-            "NVIDIA debt-to-equity ratio was approximately 0.1067",
-            "Approximately 0.107 ($8,462M debt / $79,339M equity)"
-        )
+        r = check_answer("NVIDIA debt-to-equity ratio was approximately 0.1067", "Approximately 0.107 ($8,462M debt / $79,339M equity)")
         assert r["correct"]
 
 
 # ─── Plot Tool (subprocess-isolated to avoid matplotlib C-level abort in pytest) ───
+
 
 class TestPlotTool:
     """Plot tests run in subprocess to avoid matplotlib/pytest interaction crash."""
@@ -230,42 +232,43 @@ print(result)
 '''
         result = subprocess.run(
             [sys.executable, "-c", script],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         return result.stdout + result.stderr
 
     def test_bar_chart(self):
-        out = self._run_plot_test(
-            '[{"Year": 2023, "Revenue": 100}, {"Year": 2024, "Revenue": 150}]',
-            "bar", "Test Revenue")
+        out = self._run_plot_test('[{"Year": 2023, "Revenue": 100}, {"Year": 2024, "Revenue": 150}]', "bar", "Test Revenue")
         assert "Chart generated" in out
 
     def test_line_chart(self):
-        out = self._run_plot_test(
-            '[{"Quarter": "Q1", "Profit": 50}, {"Quarter": "Q2", "Profit": 80}]',
-            "line", "Profit Trend")
+        out = self._run_plot_test('[{"Quarter": "Q1", "Profit": 50}, {"Quarter": "Q2", "Profit": 80}]', "line", "Profit Trend")
         assert "Chart generated" in out
 
     def test_pie_chart(self):
-        out = self._run_plot_test(
-            '[{"Segment": "DC", "Revenue": 115199}, {"Segment": "Gaming", "Revenue": 11359}]',
-            "pie", "Revenue by Segment")
+        out = self._run_plot_test('[{"Segment": "DC", "Revenue": 115199}, {"Segment": "Gaming", "Revenue": 11359}]', "pie", "Revenue by Segment")
         assert "Chart generated" in out
 
     def test_grouped_bar(self):
         out = self._run_plot_test(
             '[{"Company": "NVIDIA", "FY2024": 60922, "FY2025": 130497}, {"Company": "Apple", "FY2024": 391035, "FY2025": 420500}]',
-            "bar", "Revenue Comparison")
+            "bar",
+            "Revenue Comparison",
+        )
         assert "Chart generated" in out
 
     def test_stacked_bar(self):
         out = self._run_plot_test(
             '[{"Year": "FY2023", "DataCenter": 15005, "Gaming": 9067}, {"Year": "FY2025", "DataCenter": 115199, "Gaming": 11359}]',
-            "stacked_bar", "Segment Revenue")
+            "stacked_bar",
+            "Segment Revenue",
+        )
         assert "Chart generated" in out
 
 
 # ─── Query Rewriting ───
+
 
 class TestQueryRewrite:
     def test_rewrite_returns_list(self):
@@ -289,8 +292,6 @@ class TestQueryRewrite:
 
     def test_rewrite_strips_think_tags(self):
         mock_llm = MagicMock()
-        mock_llm.invoke.return_value = AIMessage(
-            content="<think>Let me think...</think>\nNVIDIA revenue FY2025\nApple revenue FY2025"
-        )
+        mock_llm.invoke.return_value = AIMessage(content="<think>Let me think...</think>\nNVIDIA revenue FY2025\nApple revenue FY2025")
         result = _rewrite_query(mock_llm, "Compare revenue")
         assert all("<think>" not in q for q in result)

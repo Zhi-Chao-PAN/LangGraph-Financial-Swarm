@@ -35,14 +35,15 @@ Apple gross margin FY2025"""
 def _rewrite_query(llm, question: str) -> list[str]:
     """Use LLM to decompose complex questions into sub-queries."""
     try:
-        response = llm.invoke([
-            SystemMessage(content=REWRITE_PROMPT),
-            HumanMessage(content=question),
-        ])
+        response = llm.invoke(
+            [
+                SystemMessage(content=REWRITE_PROMPT),
+                HumanMessage(content=question),
+            ]
+        )
         content = response.content.strip()
         content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
-        queries = [line.strip() for line in content.split("\n")
-                   if line.strip() and not line.strip().startswith(("Queries:", "Query:"))]
+        queries = [line.strip() for line in content.split("\n") if line.strip() and not line.strip().startswith(("Queries:", "Query:"))]
         if queries:
             return queries[:3]
     except Exception as e:
@@ -62,9 +63,7 @@ def _is_multi_entity_question(question: str) -> bool:
     companies = _detect_companies(question)
 
     # Explicit multi-entity indicators
-    multi_indicators = ["compare", "vs", "versus", "which company",
-                        "highest", "lowest", "between", "all three",
-                        "each company", "respectively"]
+    multi_indicators = ["compare", "vs", "versus", "which company", "highest", "lowest", "between", "all three", "each company", "respectively"]
     has_indicator = any(ind in q_lower for ind in multi_indicators)
 
     return has_indicator or len(companies) >= 2
@@ -83,14 +82,13 @@ def _build_sub_queries(question: str) -> list[str]:
     core = question
     for c in companies:
         # Remove company name as whole word (case-insensitive)
-        core = re.sub(rf'\b{re.escape(c)}\b', '', core, flags=re.IGNORECASE)
+        core = re.sub(rf"\b{re.escape(c)}\b", "", core, flags=re.IGNORECASE)
         # Also remove possessive forms
-        core = re.sub(rf"\b{re.escape(c)}'s\b", '', core, flags=re.IGNORECASE)
+        core = re.sub(rf"\b{re.escape(c)}'s\b", "", core, flags=re.IGNORECASE)
 
     # Remove comparison words but preserve financial terms
-    for word in ["compare", "vs", "versus", "between", "which", "had the",
-                 "highest", "lowest", "or"]:
-        core = re.sub(rf'\b{re.escape(word)}\b', '', core, flags=re.IGNORECASE)
+    for word in ["compare", "vs", "versus", "between", "which", "had the", "highest", "lowest", "or"]:
+        core = re.sub(rf"\b{re.escape(word)}\b", "", core, flags=re.IGNORECASE)
 
     core = " ".join(core.split()).strip().strip("?.,:")
 
@@ -162,8 +160,7 @@ def create_researcher_node(llm, conversation: Conversation | None = None) -> Cal
 
         if is_multi:
             sub_queries = _build_sub_queries(user_question)
-            log_agent_action("Researcher", "Multi-Query",
-                             f"{len(sub_queries)} queries (deterministic)")
+            log_agent_action("Researcher", "Multi-Query", f"{len(sub_queries)} queries (deterministic)")
         else:
             sub_queries = [user_question]
 
@@ -172,8 +169,12 @@ def create_researcher_node(llm, conversation: Conversation | None = None) -> Cal
         all_sources = []
 
         NO_ANSWER_PATTERNS = [
-            "does not include", "not found", "no information",
-            "cannot find", "not available", "not provided",
+            "does not include",
+            "not found",
+            "no information",
+            "cannot find",
+            "not available",
+            "not provided",
         ]
 
         for sq in sub_queries:
@@ -185,8 +186,7 @@ def create_researcher_node(llm, conversation: Conversation | None = None) -> Cal
 
                 # Retry with simplified query if no answer
                 if any(p in answer.lower() for p in NO_ANSWER_PATTERNS):
-                    simplified = re.sub(r"(what was|how much|calculate|compare)\s+", "",
-                                        sq, flags=re.IGNORECASE).strip()
+                    simplified = re.sub(r"(what was|how much|calculate|compare)\s+", "", sq, flags=re.IGNORECASE).strip()
                     if simplified != sq:
                         log_agent_action("Researcher", "Retry", f"Simplified: {simplified}")
                         result2 = adapter.query(simplified)
@@ -203,9 +203,7 @@ def create_researcher_node(llm, conversation: Conversation | None = None) -> Cal
 
         # Synthesize if multiple sub-queries
         if len(sub_queries) > 1 and len(all_answers) > 1:
-            combined_context = "\n\n".join(
-                f"[Sub-query: {sq}]\n{ans}" for sq, ans in zip(sub_queries, all_answers, strict=False)
-            )
+            combined_context = "\n\n".join(f"[Sub-query: {sq}]\n{ans}" for sq, ans in zip(sub_queries, all_answers, strict=False))
             try:
                 synthesis_prompt = (
                     f"Based on the following retrieved data, answer the original question.\n\n"
@@ -243,8 +241,12 @@ def create_researcher_node(llm, conversation: Conversation | None = None) -> Cal
 
         # Compute confidence score
         confidence = _compute_confidence(
-            final_answer, all_sources, sub_queries, all_answers,
-            is_multi, missing if is_multi else [],
+            final_answer,
+            all_sources,
+            sub_queries,
+            all_answers,
+            is_multi,
+            missing if is_multi else [],
         )
         log_agent_action("Researcher", "Confidence", f"{confidence:.2f}")
         log_agent_action("Researcher", "Answer", final_answer[:200])
@@ -277,8 +279,12 @@ def _compute_confidence(
     score = 0.5  # base
 
     NO_ANSWER_PATTERNS = [
-        "does not include", "not found", "no information",
-        "cannot find", "not available", "not provided",
+        "does not include",
+        "not found",
+        "no information",
+        "cannot find",
+        "not available",
+        "not provided",
     ]
 
     # Source count bonus (up to +0.2)

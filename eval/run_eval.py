@@ -67,8 +67,7 @@ def _extract_entities(text: str) -> set[str]:
     lower = text.lower()
 
     # Segment/region names
-    for name in ["data center", "gaming", "automotive", "professional visualization",
-                 "united states", "china", "taiwan", "singapore"]:
+    for name in ["data center", "gaming", "automotive", "professional visualization", "united states", "china", "taiwan", "singapore"]:
         if name in lower:
             entities.add(name)
 
@@ -146,8 +145,7 @@ def check_answer(predicted: str, ground_truth: str) -> dict:
         partial_score = max(partial_score, 0.6)
 
     correct = partial_score >= 0.45
-    is_hallucination = (number_score == 0 and entity_overlap < 0.3
-                        and len(pred_lower) > 50 and "error" not in pred_lower)
+    is_hallucination = number_score == 0 and entity_overlap < 0.3 and len(pred_lower) > 50 and "error" not in pred_lower
 
     # Build reasoning
     reasons = []
@@ -185,16 +183,18 @@ async def run_baseline(llm, questions: list) -> list:
         latency = time.time() - start
 
         check = check_answer(answer, q["answer"])
-        results.append({
-            "id": q["id"],
-            "question": q["question"],
-            "ground_truth": q["answer"],
-            "predicted": answer,
-            "difficulty": q.get("difficulty", "unknown"),
-            "type": q.get("type", "unknown"),
-            "latency_s": round(latency, 2),
-            **check,
-        })
+        results.append(
+            {
+                "id": q["id"],
+                "question": q["question"],
+                "ground_truth": q["answer"],
+                "predicted": answer,
+                "difficulty": q.get("difficulty", "unknown"),
+                "type": q.get("type", "unknown"),
+                "latency_s": round(latency, 2),
+                **check,
+            }
+        )
     return results
 
 
@@ -243,16 +243,18 @@ async def run_swarm(llm, questions: list) -> list:
         latency = time.time() - start
 
         check = check_answer(answer, q["answer"])
-        results.append({
-            "id": q["id"],
-            "question": q["question"],
-            "ground_truth": q["answer"],
-            "predicted": answer[:500],
-            "difficulty": q.get("difficulty", "unknown"),
-            "type": q.get("type", "unknown"),
-            "latency_s": round(latency, 2),
-            **check,
-        })
+        results.append(
+            {
+                "id": q["id"],
+                "question": q["question"],
+                "ground_truth": q["answer"],
+                "predicted": answer[:500],
+                "difficulty": q.get("difficulty", "unknown"),
+                "type": q.get("type", "unknown"),
+                "latency_s": round(latency, 2),
+                **check,
+            }
+        )
     return results
 
 
@@ -267,9 +269,9 @@ def print_summary(name: str, results: list):
     table.add_column("Metric", style="bold")
     table.add_column("Value", justify="right")
 
-    table.add_row("Accuracy", f"{correct}/{total} ({100*correct/total:.1f}%)")
+    table.add_row("Accuracy", f"{correct}/{total} ({100 * correct / total:.1f}%)")
     table.add_row("Avg Partial Score", f"{avg_partial:.3f}")
-    table.add_row("Hallucination Rate", f"{hallucinated}/{total} ({100*hallucinated/total:.1f}%)")
+    table.add_row("Hallucination Rate", f"{hallucinated}/{total} ({100 * hallucinated / total:.1f}%)")
     table.add_row("Avg Latency", f"{avg_latency:.2f}s")
 
     # By difficulty
@@ -307,7 +309,7 @@ async def main():
 
     questions = load_benchmark()
     if args.limit > 0:
-        questions = questions[:args.limit]
+        questions = questions[: args.limit]
 
     console.print(f"\n[bold]Evaluating {len(questions)} questions[/]\n")
 

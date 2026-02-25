@@ -9,8 +9,8 @@ from src.rag_adapter import (
     _tokenize,
 )
 
-
 # ─── Tokenizer ───
+
 
 class TestTokenize:
     def test_basic(self):
@@ -39,6 +39,7 @@ class TestTokenize:
 
 # ─── Reciprocal Rank Fusion ───
 
+
 class TestRRF:
     def test_single_ranking(self):
         result = _reciprocal_rank_fusion([[0, 1, 2]])
@@ -58,7 +59,7 @@ class TestRRF:
         # All 3 docs should appear
         assert set(indices) == {0, 1, 2}
         # Doc 0 and 2 each have one rank-0 and one rank-2, so tied and above doc 1
-        scores = {idx: s for idx, s in result}
+        scores = dict(result)
         assert scores[0] == scores[2]
         assert scores[0] > scores[1]
 
@@ -80,6 +81,7 @@ class TestRRF:
 
 
 # ─── BM25 Retriever ───
+
 
 class TestBM25Retriever:
     def _make_docs(self) -> list[Document]:
@@ -130,6 +132,7 @@ class TestBM25Retriever:
 
 
 # ─── Parse Sections ───
+
 
 class TestParseSections:
     def test_basic_parsing(self):
