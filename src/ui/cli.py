@@ -34,6 +34,8 @@ HELP_TEXT = """
 [bold cyan]Available Commands:[/]
   [bold]/ask[/] <question>    Ask a financial question
   [bold]/chart[/] <question>  Request a chart/visualization
+  [bold]/templates[/]         List available query templates
+  [bold]/template[/] <name>   Use a query template
   [bold]/history[/]           Show conversation history
   [bold]/stats[/]             Show query statistics
   [bold]/cache[/]             Show cache statistics
@@ -103,6 +105,40 @@ def _handle_command(cmd: str, args: str) -> bool:
             console.print("[warning]Please provide a question.[/]")
         else:
             _execute_query(args.strip(), chart_mode=(cmd == "/chart"))
+
+    elif cmd == "/templates":
+        from rich.table import Table as RichTable
+
+        from src.core.templates import TEMPLATE_CATEGORIES
+
+        for cat, templates in TEMPLATE_CATEGORIES.items():
+            table = RichTable(title=f"{cat.replace('_', ' ').title()}", border_style="blue")
+            table.add_column("Name", style="bold")
+            table.add_column("Description")
+            table.add_column("Difficulty", justify="center")
+            for t in templates:
+                diff_style = {"easy": "green", "medium": "yellow", "hard": "red"}.get(t.difficulty, "white")
+                table.add_row(t.name, t.description, f"[{diff_style}]{t.difficulty}[/]")
+            console.print(table)
+        console.print()
+
+    elif cmd == "/template":
+        from src.core.templates import get_template
+
+        name = args.strip().split()[0] if args.strip() else ""
+        template = get_template(name)
+        if not template:
+            console.print(f"[warning]Template '{name}' not found. Use /templates to list.[/]")
+        else:
+            console.print(f"[dim]Template: {template.template}[/]")
+            console.print(f"[dim]Params: {', '.join(template.params)}[/]")
+            params = {}
+            for p in template.params:
+                val = Prompt.ask(f"  [cyan]{p}[/]")
+                params[p] = val
+            rendered = template.render(**params)
+            console.print(f"[bold]Query: {rendered}[/]")
+            _execute_query(rendered)
 
     else:
         console.print(f"[warning]Unknown command: {cmd}. Type /help for available commands.[/]")
