@@ -252,6 +252,54 @@ class RAGAdapter:
 
         return self._llm
 
+    def add_documents(self, new_docs: list[Document]) -> int:
+        """
+        Incrementally add documents to the index without full rebuild.
+        Returns the number of documents added.
+        """
+        if not new_docs:
+            return 0
+
+        if self.index is None:
+            self._build_index()
+
+        # Add to vector index
+        for doc in new_docs:
+            self.index.insert(doc)
+
+        # Update internal document list
+        self._documents.extend(new_docs)
+
+        # Rebuild BM25 (lightweight, in-memory)
+        self._bm25 = BM25Retriever(self._documents)
+
+        # Update query engine
+        self.query_engine = self.index.as_query_engine(
+            similarity_top_k=settings.RAG_TOP_K,
+            llm=self._llm,
+        )
+
+        log_agent_action("RAGAdapter", "Incremental", f"Added {len(new_docs)} docs (total: {len(self._documents)})")
+        return len(new_docs)
+
+    def fetch_and_add(self, ticker: str) -> int:
+        """
+        Fetch financial data for a ticker via Yahoo Finance
+        and add it to the index dynamically.
+        Returns the number of chunks added.
+        """
+        from src.data.finance_fetcher import fetch_and_convert
+
+        log_agent_action("RAGAdapter", "DynamicFetch", f"Fetching {ticker}...")
+        markdown = fetch_and_convert(ticker)
+        new_docs = _parse_sections(markdown)
+
+        if not new_docs:
+            log_agent_action("RAGAdapter", "DynamicFetch", f"No data for {ticker}", level="warning")
+            return 0
+
+        return self.add_documents(new_docs)
+
     def _hybrid_retrieve(self, question: str, top_k: int | None = None) -> list[Document]:
         """
         Hybrid retrieval: BM25 + vector, fused with RRF.

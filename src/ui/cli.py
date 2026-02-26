@@ -37,6 +37,7 @@ HELP_TEXT = """
   [bold]/templates[/]         List available query templates
   [bold]/template[/] <name>   Use a query template
   [bold]/batch[/] <file>      Run batch queries from file (.txt/.json)
+  [bold]/fetch[/] <TICKER>    Fetch real-time data for a company (e.g. AAPL, TSLA)
   [bold]/history[/]           Show conversation history
   [bold]/stats[/]             Show query statistics
   [bold]/cache[/]             Show cache statistics
@@ -175,6 +176,22 @@ def _handle_command(cmd: str, args: str) -> bool:
                 console.print(f"[error]File not found: {file_path}[/]")
             except Exception as e:
                 console.print(f"[error]Batch failed: {e}[/]")
+
+    elif cmd == "/fetch":
+        tickers = args.strip().split()
+        if not tickers:
+            console.print("[warning]Usage: /fetch <TICKER> [TICKER2 ...][/]")
+            console.print("[dim]  Example: /fetch AAPL NVDA GOOGL TSLA[/]")
+        else:
+            from src.rag_adapter import adapter
+
+            for ticker in tickers:
+                try:
+                    with console.status(f"Fetching {ticker}..."):
+                        count = adapter.fetch_and_add(ticker)
+                    console.print(f"[green]✓[/] {ticker}: {count} chunks added to index")
+                except Exception as e:
+                    console.print(f"[red]✗[/] {ticker}: {e}")
 
     else:
         console.print(f"[warning]Unknown command: {cmd}. Type /help for available commands.[/]")

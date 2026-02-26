@@ -137,3 +137,9 @@ class TestCLICommands:
 
         result = _handle_command("/batch", "nonexistent_file.txt")
         assert result is True
+
+    def test_handle_fetch_no_ticker(self):
+        from src.ui.cli import _handle_command
+
+        result = _handle_command("/fetch", "")
+        assert result is True
