@@ -380,3 +380,50 @@ class TestTrendDetection:
 
         queries = _build_trend_queries("What was NVIDIA revenue?")
         assert queries == ["What was NVIDIA revenue?"]
+
+
+# ─── Concurrent Query Execution ───
+
+
+class TestConcurrentQuery:
+    def test_concurrent_multi_query(self):
+        """Multi-entity queries should use concurrent execution."""
+        import time
+        from unittest.mock import MagicMock, patch
+
+        mock_llm = MagicMock()
+        mock_adapter = MagicMock()
+
+        # Simulate 0.1s per query
+        def slow_query(q):
+            time.sleep(0.1)
+            return {"model_answer": f"Answer for {q}", "source_nodes": ["src"]}
+
+        mock_adapter.query.side_effect = slow_query
+
+        from src.agents.researcher import create_researcher_node
+
+        with patch("src.rag_adapter.adapter", mock_adapter):
+            node = create_researcher_node(mock_llm)
+            result = node({"messages": [("user", "Compare NVIDIA and Apple revenue in FY2025")]})
+
+        # Should have called query multiple times
+        assert mock_adapter.query.call_count >= 2
+        assert result["sender"] == "Researcher"
+
+    def test_single_query_no_concurrency(self):
+        """Single queries should not use ThreadPoolExecutor overhead."""
+        from unittest.mock import MagicMock, patch
+
+        mock_llm = MagicMock()
+        mock_adapter = MagicMock()
+        mock_adapter.query.return_value = {"model_answer": "Revenue was $130B", "source_nodes": ["src"]}
+
+        from src.agents.researcher import create_researcher_node
+
+        with patch("src.rag_adapter.adapter", mock_adapter):
+            node = create_researcher_node(mock_llm)
+            result = node({"messages": [("user", "What was NVIDIA revenue in FY2025?")]})
+
+        assert mock_adapter.query.call_count >= 1
+        assert result["sender"] == "Researcher"

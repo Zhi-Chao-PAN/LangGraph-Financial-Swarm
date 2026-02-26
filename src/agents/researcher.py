@@ -256,7 +256,7 @@ def create_researcher_node(llm, conversation: Conversation | None = None) -> Cal
         else:
             sub_queries = [user_question]
 
-        # Execute all sub-queries
+        # Execute all sub-queries (concurrent for multi-query, serial for single)
         all_answers = []
         all_sources = []
 
@@ -269,7 +269,8 @@ def create_researcher_node(llm, conversation: Conversation | None = None) -> Cal
             "not provided",
         ]
 
-        for sq in sub_queries:
+        def _execute_single_query(sq: str) -> tuple[str, list]:
+            """Execute a single RAG query with retry logic."""
             log_agent_action("Researcher", "RAG Query", f"Q: {sq}")
             try:
                 result = adapter.query(sq)
@@ -287,11 +288,37 @@ def create_researcher_node(llm, conversation: Conversation | None = None) -> Cal
                             answer = answer2
                             sources = result2.get("source_nodes", [])
 
-                all_answers.append(answer)
-                all_sources.extend(sources)
+                return answer, sources
             except Exception as e:
                 log_agent_action("Researcher", "Error", f"RAG query failed: {e}", level="error")
-                all_answers.append(f"Error querying: {sq}")
+                return f"Error querying: {sq}", []
+
+        if len(sub_queries) > 1:
+            # Concurrent execution for multi-query
+            import time
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+
+            start_time = time.time()
+            with ThreadPoolExecutor(max_workers=min(len(sub_queries), 4)) as executor:
+                future_to_sq = {executor.submit(_execute_single_query, sq): sq for sq in sub_queries}
+                results_map = {}
+                for future in as_completed(future_to_sq):
+                    sq = future_to_sq[future]
+                    results_map[sq] = future.result()
+
+            # Preserve original order
+            for sq in sub_queries:
+                answer, sources = results_map[sq]
+                all_answers.append(answer)
+                all_sources.extend(sources)
+
+            elapsed = time.time() - start_time
+            log_agent_action("Researcher", "Concurrent", f"{len(sub_queries)} queries in {elapsed:.1f}s")
+        else:
+            # Single query - no concurrency overhead
+            answer, sources = _execute_single_query(sub_queries[0])
+            all_answers.append(answer)
+            all_sources.extend(sources)
 
         # Synthesize if multiple sub-queries
         if len(sub_queries) > 1 and len(all_answers) > 1:
