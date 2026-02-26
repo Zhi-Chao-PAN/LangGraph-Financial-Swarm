@@ -1,0 +1,40 @@
+version: "3.8"
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  swarm:
+    build: .
+    container_name: financial-swarm
+    ports:
+      - "8501:8501"
+    environment:
+      - LLM_BASE_URL=http://ollama:11434
+      - LLM_MODEL=deepseek-r1:8b
+    volumes:
+      - ./data:/app/data
+      - ./output:/app/output
+    depends_on:
+      ollama:
+        condition: service_healthy
+
+volumes:
+  ollama_data:

@@ -35,6 +35,7 @@ dependencies = [
 [project.optional-dependencies]
 parse = ["llama-parse>=0.4.4"]
 pdf = ["pymupdf>=1.24.0"]
+web = ["streamlit>=1.30.0"]
 dev = ["pytest>=7.0", "ruff>=0.4.0", "mypy>=1.10.0"]
 
 [tool.pytest.ini_options]

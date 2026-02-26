@@ -1,16 +1,12 @@
-# Logs
-.git
-run_log.txt
-*.log
-
-# Environment
-.env
-
-# Data and Cache
-data/rag_cache/
-__pycache__/
+__pycache__
 *.pyc
-
-# OS files
-.DS_Store
-Thumbs.db
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.git
+.github
+*.egg-info
+output/
+data/rag_cache/
+agent_trace.log
+.env
