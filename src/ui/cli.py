@@ -36,6 +36,7 @@ HELP_TEXT = """
   [bold]/chart[/] <question>  Request a chart/visualization
   [bold]/templates[/]         List available query templates
   [bold]/template[/] <name>   Use a query template
+  [bold]/batch[/] <file>      Run batch queries from file (.txt/.json)
   [bold]/history[/]           Show conversation history
   [bold]/stats[/]             Show query statistics
   [bold]/cache[/]             Show cache statistics
@@ -139,6 +140,41 @@ def _handle_command(cmd: str, args: str) -> bool:
             rendered = template.render(**params)
             console.print(f"[bold]Query: {rendered}[/]")
             _execute_query(rendered)
+
+    elif cmd == "/batch":
+        from src.core.batch import load_queries_from_file, run_batch
+
+        file_path = args.strip()
+        if not file_path:
+            console.print("[warning]Usage: /batch <file.txt|file.json>[/]")
+            console.print("[dim]  File formats: .txt (one query per line, # comments) or .json (list of strings)[/]")
+        else:
+            try:
+                queries = load_queries_from_file(file_path)
+                console.print(f"[bold]Loaded {len(queries)} queries from {file_path}[/]")
+
+                from rich.progress import Progress
+
+                with Progress(console=console) as progress:
+                    task = progress.add_task("Running batch...", total=len(queries))
+
+                    def on_progress(i, total, q, _result):
+                        progress.update(task, completed=i)
+
+                    report = run_batch(queries, progress_callback=on_progress)
+
+                console.print(f"\n[bold green]Batch complete:[/] {report.success}/{report.total} succeeded")
+                console.print(f"[dim]Total time: {report.total_time:.1f}s | Avg: {report.avg_time:.1f}s[/]")
+
+                # Show summary
+                for r in report.results:
+                    status = "[green]✓[/]" if r.success else "[red]✗[/]"
+                    console.print(f"  {status} {r.query[:60]}... ({r.latency:.1f}s)")
+
+            except FileNotFoundError:
+                console.print(f"[error]File not found: {file_path}[/]")
+            except Exception as e:
+                console.print(f"[error]Batch failed: {e}[/]")
 
     else:
         console.print(f"[warning]Unknown command: {cmd}. Type /help for available commands.[/]")
