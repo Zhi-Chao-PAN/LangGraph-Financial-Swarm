@@ -295,3 +295,63 @@ class TestQueryRewrite:
         mock_llm.invoke.return_value = AIMessage(content="<think>Let me think...</think>\nNVIDIA revenue FY2025\nApple revenue FY2025")
         result = _rewrite_query(mock_llm, "Compare revenue")
         assert all("<think>" not in q for q in result)
+
+
+# ─── Trend & Time Range Detection ───
+
+
+class TestTrendDetection:
+    def test_detect_fiscal_years(self):
+        from src.agents.researcher import _detect_fiscal_years
+
+        years = _detect_fiscal_years("NVIDIA revenue in FY2024 and FY2025")
+        assert "2024" in years
+        assert "2025" in years
+
+    def test_detect_year_range(self):
+        from src.agents.researcher import _detect_year_range
+
+        result = _detect_year_range("NVIDIA revenue from FY2021 to FY2025")
+        assert result == (2021, 2025)
+
+    def test_detect_year_range_dash(self):
+        from src.agents.researcher import _detect_year_range
+
+        result = _detect_year_range("Revenue trend FY2022-FY2024")
+        assert result == (2022, 2024)
+
+    def test_detect_year_range_none(self):
+        from src.agents.researcher import _detect_year_range
+
+        result = _detect_year_range("What was NVIDIA revenue in FY2025?")
+        assert result is None
+
+    def test_is_trend_question(self):
+        from src.agents.researcher import _is_trend_question
+
+        assert _is_trend_question("What is the revenue growth trend?")
+        assert _is_trend_question("Calculate CAGR from FY2021 to FY2025")
+        assert _is_trend_question("How has revenue changed over time?")
+        assert not _is_trend_question("What was NVIDIA revenue in FY2025?")
+
+    def test_build_trend_queries(self):
+        from src.agents.researcher import _build_trend_queries
+
+        queries = _build_trend_queries("NVIDIA revenue trend from FY2023 to FY2025")
+        # Should have one query per year + original fallback
+        assert len(queries) >= 3
+        assert any("FY2023" in q for q in queries)
+        assert any("FY2025" in q for q in queries)
+
+    def test_build_trend_queries_multi_company(self):
+        from src.agents.researcher import _build_trend_queries
+
+        queries = _build_trend_queries("Compare NVIDIA and Apple revenue growth from FY2023 to FY2025")
+        # 2 companies × 3 years + 1 fallback = 7
+        assert len(queries) >= 6
+
+    def test_build_trend_queries_no_range(self):
+        from src.agents.researcher import _build_trend_queries
+
+        queries = _build_trend_queries("What was NVIDIA revenue?")
+        assert queries == ["What was NVIDIA revenue?"]

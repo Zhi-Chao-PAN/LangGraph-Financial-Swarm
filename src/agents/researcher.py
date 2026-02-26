@@ -118,6 +118,94 @@ def _verify_coverage(question: str, answer: str) -> list[str]:
     return missing
 
 
+# Fiscal year pattern: FY2021, FY2025, FY 2023, etc.
+_FY_PATTERN = re.compile(r"FY\s?(\d{4})", re.IGNORECASE)
+
+# Year range patterns: FY2021 to FY2025, FY2021-FY2025, from 2021 to 2025
+_RANGE_PATTERNS = [
+    re.compile(r"FY\s?(\d{4})\s*(?:to|through|[-–])\s*FY\s?(\d{4})", re.IGNORECASE),
+    re.compile(r"from\s+(?:FY\s?)?(\d{4})\s+to\s+(?:FY\s?)?(\d{4})", re.IGNORECASE),
+]
+
+# Trend indicators
+_TREND_INDICATORS = [
+    "trend",
+    "growth",
+    "cagr",
+    "change over",
+    "over time",
+    "year over year",
+    "yoy",
+    "trajectory",
+    "evolution",
+    "increased",
+    "decreased",
+    "grew",
+    "declined",
+]
+
+
+def _detect_fiscal_years(question: str) -> list[str]:
+    """Extract all fiscal years mentioned in a question."""
+    return _FY_PATTERN.findall(question)
+
+
+def _detect_year_range(question: str) -> tuple[int, int] | None:
+    """Detect a fiscal year range (e.g., FY2021 to FY2025). Returns (start, end) or None."""
+    for pattern in _RANGE_PATTERNS:
+        match = pattern.search(question)
+        if match:
+            return int(match.group(1)), int(match.group(2))
+    return None
+
+
+def _is_trend_question(question: str) -> bool:
+    """Detect if a question asks about trends or changes over time."""
+    q_lower = question.lower()
+    return any(ind in q_lower for ind in _TREND_INDICATORS)
+
+
+def _build_trend_queries(question: str) -> list[str]:
+    """
+    Build sub-queries for trend/time-range questions.
+    Generates one query per year in the range for each company.
+    """
+    year_range = _detect_year_range(question)
+    companies = _detect_companies(question)
+
+    if not year_range:
+        return [question]
+
+    start, end = year_range
+    if end - start > 10 or end - start < 1:
+        return [question]
+
+    # Extract the metric
+    core = question
+    for pattern in _RANGE_PATTERNS:
+        core = pattern.sub("", core)
+    for c in companies:
+        core = re.sub(rf"\b{re.escape(c)}\b", "", core, flags=re.IGNORECASE)
+        core = re.sub(rf"\b{re.escape(c)}'s\b", "", core, flags=re.IGNORECASE)
+    for word in ["trend", "growth", "cagr", "over time", "trajectory", "what was", "calculate"]:
+        core = re.sub(rf"\b{re.escape(word)}\b", "", core, flags=re.IGNORECASE)
+    core = " ".join(core.split()).strip().strip("?.,:")
+
+    sub_queries = []
+    target_companies = companies if companies else [""]
+
+    for company in target_companies:
+        for year in range(start, end + 1):
+            prefix = f"{company.upper()} " if company else ""
+            sub_queries.append(f"{prefix}{core} FY{year}".strip())
+
+    # Keep original as fallback
+    sub_queries.append(question)
+
+    log_agent_action("Researcher", "Trend Queries", f"{len(sub_queries)} queries for {start}-{end}")
+    return sub_queries
+
+
 def create_researcher_node(llm, conversation: Conversation | None = None) -> Callable[[AgentState], dict[str, Any]]:
     """
     Creates the Researcher node with deterministic multi-query,
@@ -157,8 +245,12 @@ def create_researcher_node(llm, conversation: Conversation | None = None) -> Cal
         from src.rag_adapter import adapter
 
         is_multi = _is_multi_entity_question(user_question)
+        is_trend = _is_trend_question(user_question)
 
-        if is_multi:
+        if is_trend and _detect_year_range(user_question):
+            sub_queries = _build_trend_queries(user_question)
+            log_agent_action("Researcher", "Trend Query", f"{len(sub_queries)} queries (time-range)")
+        elif is_multi:
             sub_queries = _build_sub_queries(user_question)
             log_agent_action("Researcher", "Multi-Query", f"{len(sub_queries)} queries (deterministic)")
         else:
