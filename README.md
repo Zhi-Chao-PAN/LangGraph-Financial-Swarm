@@ -52,11 +52,11 @@ User Query
 - **Answer Quality Assessment (v0.9.0)**: Detects empty, weak, hedging, and repetitive answers.
 - **Trend Detection (v0.9.0)**: Fiscal year range parsing and time-series query decomposition.
 - **Graceful Degradation**: Ollama health check on startup; fallback messages when LLM is unavailable.
-- **Multi-Company**: Financial data for NVIDIA, Apple, and Microsoft (FY2021–FY2025).
+- **Multi-Company**: Financial data for NVIDIA, Apple, Microsoft, Alphabet (Google), and Amazon (FY2021–FY2025).
 
 ## Evaluation Results
 
-60-question benchmark across NVIDIA, Apple, and Microsoft (FY2021–FY2025):
+90-question benchmark across NVIDIA, Apple, Microsoft, Alphabet, and Amazon (FY2021–FY2025):
 
 | Mode | Accuracy | Avg Partial Score | Hallucination |
 |:---|---:|---:|---:|
