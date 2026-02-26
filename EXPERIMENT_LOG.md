@@ -62,6 +62,21 @@
 | Code Quality | 0 errors | ruff lint + format, 142 tests passing |
 | Version | v0.8.0 | pyproject.toml, README rewrite, __main__.py entry point |
 
+## v0.9.0 Features (2025-02-26)
+
+| Task | Status | Details |
+|---|---|---|
+| Query Templates | Done | 12 templates (single_hop/comparison/calculation/trend), batch generation |
+| Batch Executor | Done | Sequential execution, progress callback, file/JSON loading, 14 tests |
+| Answer Quality | Done | Empty/weak/hedging/repetition detection, 9 tests |
+| Trend Detection | Done | FY range parsing, trend query decomposition, 8 tests |
+| Performance Tracker | Done | QueryRecord, p95 latency, save/load JSON, 12 tests |
+| Observability | Done | Query ID, per-agent latency, error tracking, final report table, 9 tests |
+| Config Validation | Done | Startup warnings for bad settings, 4 tests |
+| Streamlit Web UI | Done | Dashboard, query, history, export, cache mgmt |
+| Docker | Done | Dockerfile + docker-compose with Ollama |
+| Tests | 215 total | +73 from v0.8.0 |
+
 ## Environment
 
 - Hardware: ASUS Laptop, Intel Ultra 9 185H + RTX 4060 Laptop (8GB VRAM) + 40GB RAM

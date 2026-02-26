@@ -46,7 +46,7 @@ def _get_adapter():
 def render_sidebar():
     """Render the sidebar with system status and settings."""
     st.sidebar.title("🏦 Financial Swarm")
-    st.sidebar.caption("v0.8.0 · Multi-Agent Financial Analysis")
+    st.sidebar.caption("v0.9.0 · Multi-Agent Financial Analysis")
     st.sidebar.divider()
 
     # System status
@@ -255,7 +255,7 @@ def main():
 
     # Footer
     st.divider()
-    st.caption("🏦 LangGraph Financial Swarm v0.8.0 · Local-first multi-agent financial analysis")
+    st.caption("🏦 LangGraph Financial Swarm v0.9.0 · Local-first multi-agent financial analysis")
 
 
 if __name__ == "__main__":

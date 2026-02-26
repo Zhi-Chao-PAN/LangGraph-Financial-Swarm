@@ -134,17 +134,18 @@ LangGraph-Financial-Swarm/
 │   ├── utils/           # Robustness, validation, observability
 │   └── rag_adapter.py   # Hybrid search (BM25 + vector RRF)
 ├── eval/                # Benchmark, ablation, latency analysis
-├── tests/               # 142 tests (unit + integration)
+├── tests/               # 215 tests (unit + integration)
 ├── data/                # Financial data (raw + parsed)
 ├── .github/workflows/   # CI/CD (lint + test)
-└── pyproject.toml       # v0.8.0
+└── pyproject.toml       # v0.9.0
 ```
 
 ## Version History
 
 | Version | Highlights |
 |:---|:---|
-| v0.8.0 | Hybrid search (BM25+RRF), Rich CLI UI, E2E PDF pipeline, health check, graceful degradation, CI/CD, 142 tests |
+| v0.9.0 | Query templates, batch executor, answer quality assessment, trend detection, observability tracing, performance tracker, 215 tests |
+| v0.8.0 | Hybrid search (BM25+RRF), Rich CLI UI, E2E PDF pipeline, health check, graceful degradation, CI/CD, Streamlit Web UI, Docker |
 | v0.7.0 | Multi-turn conversation, follow-up detection, confidence scoring, latency analysis |
 | v0.6.0 | Deterministic multi-query, retrieval verification, 60-question benchmark, PDF parser |
 | v0.5.0 | Ablation study (4 experiments), structured chunking validation |

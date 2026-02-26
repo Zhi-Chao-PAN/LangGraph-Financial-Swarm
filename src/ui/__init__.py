@@ -30,7 +30,7 @@ def print_banner() -> None:
     """Print the application banner."""
     banner = """
 ╔══════════════════════════════════════════════════════════════╗
-║           🏦  LangGraph Financial Swarm  v0.8.0             ║
+║           🏦  LangGraph Financial Swarm  v0.9.0             ║
 ║     Multi-Agent Financial Analysis with Local LLMs          ║
 ╚══════════════════════════════════════════════════════════════╝"""
     console.print(banner, style="header")
