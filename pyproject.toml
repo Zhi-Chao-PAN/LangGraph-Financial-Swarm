@@ -30,6 +30,7 @@ dependencies = [
     "json5>=0.9.25",
     "diskcache>=5.6.3",
     "rank-bm25>=0.2.2",
+    "yfinance>=0.2.36",
 ]
 
 [project.optional-dependencies]
