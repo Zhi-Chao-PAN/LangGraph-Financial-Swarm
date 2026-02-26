@@ -9,7 +9,7 @@ Traditional single-agent RAG pipelines struggle with multi-step financial reason
 ### Architecture
 
 ```
-User Query
+User Query (EN/ZH)
     │
     ▼
 ┌──────────────┐
@@ -36,23 +36,42 @@ User Query
 
 ### Key Features
 
+**Core Intelligence**
 - **Local-first**: All inference via Ollama (DeepSeek-R1:8B). No data leaves your environment.
-- **Hybrid Search (v0.8.0)**: BM25 lexical + dense vector retrieval fused with Reciprocal Rank Fusion (RRF).
+- **Hybrid Search**: BM25 lexical + dense vector retrieval fused with Reciprocal Rank Fusion (RRF).
 - **Structure-Aware RAG**: Documents chunked by section/table, each table is an independent retrieval unit.
 - **Deterministic Multi-Query**: Multi-entity questions decomposed without LLM calls, with coverage verification.
-- **Concurrent Sub-Queries (v0.9.0)**: Multi-entity queries execute in parallel via ThreadPoolExecutor.
-- **Retrieval Verification**: After answering, checks if all entities are covered; auto-fills gaps with targeted queries.
-- **Vector Index Persistence (v0.9.0)**: Embedding index cached to disk with MD5 hash check; rebuilds only when data changes.
-- **PDF Ingestion**: Built-in PDF parser (PyMuPDF) extracts text + tables to Markdown for RAG. No API key needed.
-- **Multi-Turn Conversation**: Follow-up detection, context injection, and `/history` command (v0.7.0).
-- **Rich CLI UI (v0.8.0)**: Interactive terminal with status dashboard, formatted answer panels, eval tables, export, and cache management.
-- **Streamlit Web UI (v0.9.0)**: Browser-based interface with query, data explorer, and templates tabs.
-- **Query Templates (v0.9.0)**: 12 pre-built financial query templates with batch generation.
-- **Batch Executor (v0.9.0)**: Run queries from files/templates with progress tracking.
-- **Answer Quality Assessment (v0.9.0)**: Detects empty, weak, hedging, and repetitive answers.
-- **Trend Detection (v0.9.0)**: Fiscal year range parsing and time-series query decomposition.
-- **Graceful Degradation**: Ollama health check on startup; fallback messages when LLM is unavailable.
-- **Multi-Company**: Financial data for NVIDIA, Apple, Microsoft, Alphabet (Google), and Amazon (FY2021–FY2025).
+- **Concurrent Sub-Queries**: Multi-entity queries execute in parallel via ThreadPoolExecutor.
+- **Multi-LLM Backend (v1.0.0)**: Ollama / OpenAI / DeepSeek / Custom endpoints with auto-fallback.
+- **Confidence Scoring (v1.0.0)**: Multi-signal answer confidence (hedging detection, source relevance, numeric evidence).
+- **Source Attribution (v1.0.0)**: Trace which documents contributed to each answer.
+
+**Real-Time Data**
+- **Yahoo Finance Integration (v1.0.0)**: Fetch real-time data for any global public company.
+- **Dynamic Index Hot-Update**: Add new company data to RAG index without restart.
+- **Multi-Data-Source Plugin Architecture**: `DataSource` ABC + `SourceRegistry` for extensibility.
+- **SQLite Cache**: Intelligent caching to minimize API calls.
+
+**Financial Analysis**
+- **Financial Calculator (v1.0.0)**: 17 ratios (profitability / liquidity / leverage / cash flow).
+- **Peer Comparison (v1.0.0)**: Compare companies across 10 industry groups.
+- **Trend Forecasting (v1.0.0)**: Linear regression + Z-score anomaly detection + moving average.
+- **Report Generator (v1.0.0)**: Chinese/English bilingual reports with risk detection and health scoring.
+- **Portfolio Tracker (v1.0.0)**: Track holdings, calculate returns, allocation breakdown.
+
+**User Experience**
+- **Chinese Query Support (v1.0.0)**: 80+ financial term mappings, language detection, response localization.
+- **Smart Search Suggestions (v1.0.0)**: Trie prefix tree + hot query tracking + cold-start defaults.
+- **Async Streaming (v1.0.0)**: SSE streaming responses for real-time answer generation.
+- **Agent Reasoning Trace (v1.0.0)**: Mermaid flowchart visualization of multi-agent decision process.
+- **Rich CLI UI**: Interactive terminal with dashboard, answer panels, eval tables, export.
+- **Streamlit Web UI**: Browser-based interface with query, data explorer, and templates tabs.
+
+**API & Deployment**
+- **FastAPI REST API (v1.0.0)**: 10 endpoints — query, stream, fetch, report, compare, portfolio, backends, health.
+- **pip Installable**: `pip install -e ".[all]"` with CLI entry point `financial-swarm`.
+- **Docker + docker-compose**: One-command deployment.
+- **GitHub Actions CI/CD**: Automated lint + test on every push.
 
 ## Evaluation Results
 
@@ -75,11 +94,6 @@ By type: single_hop 18/18, comparison 21/21, calculation 13/13, multi_hop 8/8.
 | w/o Structured Chunking | 92.5% | 0.848 | 5.0% | 80.7s |
 | w/o Multi-Query Synthesis | 87.5% | 0.839 | 2.5% | 13.9s |
 
-Key findings:
-- Multi-Query Synthesis is the most critical component (−10% accuracy without it)
-- Structured Chunking prevents hallucinations and reduces latency 4.5×
-- LLM-based Query Rewriting was replaced with deterministic decomposition in v0.6.0
-
 ## Quick Start
 
 ### Prerequisites
@@ -92,40 +106,39 @@ Key findings:
 ```bash
 git clone https://github.com/panzc/LangGraph-Financial-Swarm.git
 cd LangGraph-Financial-Swarm
-pip install -e ".[dev,pdf]"
+pip install -e ".[all,dev]"
 ```
 
 ### Interactive CLI
 
 ```bash
+financial-swarm
+# or
 python -m src
 ```
 
-This launches the Rich CLI with:
-- System status dashboard (Ollama health, model info, data status)
-- Interactive query mode with formatted answer panels
-- Commands: `/ask`, `/chart`, `/history`, `/stats`, `/cache`, `/export`, `/status`
-
-### Data Ingestion
+### API Server
 
 ```bash
-# Ingest from PDF (local PyMuPDF, no API key needed)
-python -m src.data.ingest --input data/raw/NVIDIA_10K.pdf --output data/parsed/nvidia.md
-
-# Ingest from directory (PDF + Markdown)
-python -m src.data.ingest --input data/raw/ --output data/parsed/combined.md
+uvicorn src.api.server:app --host 0.0.0.0 --port 8000
 ```
 
-### Run Evaluation
-
-```bash
-python eval/run_eval.py
-```
+API endpoints:
+- `POST /query` — Ask a financial question
+- `POST /query/stream` — Stream answer via SSE
+- `POST /fetch` — Fetch real-time data for any ticker
+- `POST /report` — Generate financial health report (EN/ZH)
+- `POST /compare` — Compare multiple companies
+- `GET /portfolio` — View portfolio summary
+- `POST /portfolio/add` — Add holding
+- `POST /portfolio/remove` — Remove holding
+- `GET /backends` — List LLM backends
+- `GET /health` — System health check
 
 ### Run Tests
 
 ```bash
-python -m pytest tests/ -v
+python -m pytest tests/ -v  # 513 tests
 ```
 
 ## Project Structure
@@ -134,38 +147,35 @@ python -m pytest tests/ -v
 LangGraph-Financial-Swarm/
 ├── src/
 │   ├── agents/          # Supervisor, Researcher, Quant agents
-│   ├── core/            # Config, LLM adapters, conversation, types
-│   ├── data/            # PDF parser, data ingestion pipeline
+│   ├── api/             # FastAPI REST API server
+│   ├── core/            # Config, LLM backends, streaming, portfolio, suggestions
+│   ├── data/            # PDF parser, Yahoo Finance fetcher, data sources
 │   ├── tools/           # Plot tool for chart generation
-│   ├── ui/              # Rich CLI (dashboard, display, interactive)
-│   ├── utils/           # Robustness, validation, observability
+│   ├── ui/              # Rich CLI + Streamlit Web UI
+│   ├── utils/           # Calculator, report, trend, i18n, confidence, trace
 │   └── rag_adapter.py   # Hybrid search (BM25 + vector RRF)
-├── eval/                # Benchmark, ablation, latency analysis
-├── tests/               # 227 tests (unit + integration)
-├── data/                # Financial data (raw + parsed)
-├── .github/workflows/   # CI/CD (lint + test)
-└── pyproject.toml       # v0.9.0
+├── eval/                # Benchmark (90 questions), ablation
+├── tests/               # 513 tests
+├── data/                # Financial data (raw + parsed + cache)
+├── .github/workflows/   # CI/CD
+└── pyproject.toml       # v1.0.0
 ```
 
 ## Version History
 
-| Version | Highlights |
-|:---|:---|
-| v0.9.0 | Query templates, batch executor, answer quality, trend detection, concurrent queries, index persistence, Streamlit Web UI, observability, 227 tests |
-| v0.8.0 | Hybrid search (BM25+RRF), Rich CLI UI, E2E PDF pipeline, health check, graceful degradation, CI/CD, Streamlit Web UI, Docker |
-| v0.7.0 | Multi-turn conversation, follow-up detection, confidence scoring, latency analysis |
-| v0.6.0 | Deterministic multi-query, retrieval verification, 60-question benchmark, PDF parser |
-| v0.5.0 | Ablation study (4 experiments), structured chunking validation |
-| v0.4.0 | Multi-company support (NVIDIA + Apple + Microsoft), 40-question benchmark |
-| v0.3.0 | Structure-aware RAG, DirectOllamaChat/LLM bypass |
-| v0.2.0 | Basic supervisor-worker graph, NVIDIA-only |
+| Version | Tests | Highlights |
+|:---|---:|:---|
+| v1.0.0 | 513 | Multi-LLM backend, FastAPI (10 endpoints), Yahoo Finance real-time, financial calculator (17 ratios), peer comparison, trend forecasting, report generator (CN/EN), portfolio tracker, i18n (80+ terms), smart suggestions, SSE streaming, agent reasoning trace, confidence scoring, source attribution, pip installable |
+| v0.9.0 | 227 | Query templates, batch executor, answer quality, trend detection, concurrent queries, index persistence, Streamlit Web UI, observability, Docker |
+| v0.8.0 | 142 | Hybrid search (BM25+RRF), Rich CLI UI, E2E PDF pipeline, health check, CI/CD |
+| v0.7.0 | 94 | Multi-turn conversation, follow-up detection, confidence scoring |
+| v0.6.0 | 60 | Deterministic multi-query, retrieval verification, 60-question benchmark |
 
 ## Environment
 
 - Hardware: ASUS Laptop, Intel Ultra 9 185H + RTX 4060 Laptop (8GB VRAM) + 40GB RAM
 - OS: Windows 11
-- Ollama: 0.15.2
-- Model: deepseek-r1:8b
+- Model: deepseek-r1:8b via Ollama
 - Python: 3.12
 - Embedding: BAAI/bge-large-en-v1.5 (CPU)
 
