@@ -1,37 +1,58 @@
 # Contributing
 
-## Setup
+Thanks for your interest in contributing to LangGraph Financial Swarm!
+
+## Development Setup
 
 ```bash
-git clone https://github.com/Zhi-Chao-PAN/LangGraph-Financial-Swarm.git
+git clone https://github.com/panzc/LangGraph-Financial-Swarm.git
 cd LangGraph-Financial-Swarm
-pip install .[dev]
+pip install -e ".[dev,pdf,web]"
 ```
 
-## Development
+## Running Tests
 
-1. Create a feature branch: `git checkout -b feature/your-feature`
-2. Make changes
-3. Run tests: `python -m pytest tests/ -v`
-4. Commit with clear messages
-5. Open a pull request
+```bash
+python -m pytest tests/ -v
+```
 
-## Code Style
+## Code Quality
 
-- Python 3.10+ type hints
-- Docstrings for public functions
-- Keep agent nodes stateless (all state via `AgentState`)
+We use `ruff` for linting and formatting:
 
-## Adding a New Agent
+```bash
+ruff check src/ tests/ eval/
+ruff format src/ tests/ eval/
+```
 
-1. Create `src/agents/your_agent.py` with a `create_your_agent_node(llm)` factory
-2. Register in `main.py`: add node + edges
-3. Update Supervisor's `members` list
-4. Add tests in `tests/test_integration.py`
+All code must pass lint and format checks before merging.
 
-## Adding Financial Data
+## Project Structure
 
-1. Add markdown tables to `data/parsed/llamaparse/parsed.md`
-2. Use `## Section Title` headers (RAG chunks by section)
-3. Add benchmark questions to `eval/benchmark.json`
-4. Clear RAG cache: delete `data/rag_cache/`
+- `src/agents/` — Supervisor, Researcher, Quant agents
+- `src/core/` — Config, LLM adapters, conversation, templates, batch
+- `src/data/` — PDF parser, data ingestion
+- `src/tools/` — Plot tool
+- `src/ui/` — Rich CLI, Streamlit Web UI, data explorer
+- `src/utils/` — Robustness, validation, quality, tracker, observability
+- `tests/` — Unit and integration tests
+- `eval/` — Benchmark, ablation, latency analysis
+
+## Adding a New Feature
+
+1. Create your feature branch: `git checkout -b feat/my-feature`
+2. Write tests first (TDD encouraged)
+3. Implement the feature
+4. Run `ruff check` and `ruff format`
+5. Run `python -m pytest tests/` — all tests must pass
+6. Commit with a descriptive message: `feat: description`
+
+## Commit Convention
+
+- `feat:` — New feature
+- `fix:` — Bug fix
+- `docs:` — Documentation
+- `test:` — Tests
+- `chore:` — Maintenance
+- `ci:` — CI/CD changes
+- `release:` — Version release

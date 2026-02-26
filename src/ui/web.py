@@ -250,12 +250,54 @@ def main():
         st.session_state["stats"] = {"queries": 0, "total_latency": 0, "avg_latency": 0}
 
     render_sidebar()
-    render_query_section()
-    render_history()
+
+    # Page navigation
+    tab_query, tab_explorer, tab_templates = st.tabs(["💬 Query", "📊 Data Explorer", "📋 Templates"])
+
+    with tab_query:
+        render_query_section()
+        render_history()
+
+    with tab_explorer:
+        from src.ui.explorer import render_data_explorer
+
+        render_data_explorer()
+
+    with tab_templates:
+        _render_templates_tab()
 
     # Footer
     st.divider()
     st.caption("🏦 LangGraph Financial Swarm v0.9.0 · Local-first multi-agent financial analysis")
+
+
+def _render_templates_tab():
+    """Render the query templates tab."""
+    st.header("📋 Query Templates")
+
+    from src.core.templates import TEMPLATE_CATEGORIES
+
+    for cat, templates in TEMPLATE_CATEGORIES.items():
+        st.subheader(cat.replace("_", " ").title())
+        for t in templates:
+            diff_color = {"easy": "🟢", "medium": "🟡", "hard": "🔴"}.get(t.difficulty, "⚪")
+            with st.expander(f"{diff_color} {t.name} — {t.description}"):
+                st.code(t.template, language="text")
+                st.caption(f"Parameters: {', '.join(t.params)}")
+
+                # Quick fill
+                params = {}
+                cols = st.columns(len(t.params))
+                for i, p in enumerate(t.params):
+                    params[p] = cols[i].text_input(p, key=f"tmpl_{t.name}_{p}")
+
+                if st.button(f"Run {t.name}", key=f"run_{t.name}"):
+                    if all(params.values()):
+                        rendered = t.render(**params)
+                        st.info(f"Query: {rendered}")
+                        _execute_and_display(rendered)
+                    else:
+                        st.warning("Please fill all parameters.")
 
 
 if __name__ == "__main__":
