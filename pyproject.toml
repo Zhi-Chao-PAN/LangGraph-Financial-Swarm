@@ -4,13 +4,23 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "langgraph-financial-swarm"
-version = "0.9.0"
+version = "1.0.0"
 description = "A hierarchical multi-agent system for financial analysis using LangGraph and local LLMs."
 readme = "README.md"
 requires-python = ">=3.10"
 license = {file = "LICENSE"}
 authors = [
   {name = "Zhi-Chao Pan"},
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Financial",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
     "langgraph>=0.0.26",
@@ -39,6 +49,12 @@ pdf = ["pymupdf>=1.24.0"]
 web = ["streamlit>=1.30.0"]
 api = ["fastapi>=0.110.0", "uvicorn>=0.27.0"]
 dev = ["pytest>=7.0", "ruff>=0.4.0", "mypy>=1.10.0"]
+all = [
+    "langgraph-financial-swarm[parse,pdf,web,api]",
+]
+
+[project.scripts]
+financial-swarm = "src.__main__:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

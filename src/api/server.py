@@ -17,11 +17,11 @@ from pydantic import BaseModel, Field
 app = FastAPI(
     title="LangGraph Financial Swarm API",
     description="Multi-agent financial analysis system with RAG",
-    version="0.9.0",
+    version="1.0.0",
 )
 
 
-# 鈹€鈹€鈹€ Request/Response Models 鈹€鈹€鈹€
+# 閳光偓閳光偓閳光偓 Request/Response Models 閳光偓閳光偓閳光偓
 
 
 class QueryRequest(BaseModel):
@@ -69,7 +69,7 @@ class HealthResponse(BaseModel):
     data_sources: int
 
 
-# 鈹€鈹€鈹€ Endpoints 鈹€鈹€鈹€
+# 閳光偓閳光偓閳光偓 Endpoints 閳光偓閳光偓閳光偓
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -82,7 +82,7 @@ async def health_check():
 
     return HealthResponse(
         status="ok",
-        version="0.9.0",
+        version="1.0.0",
         llm_available=llm_ok,
         data_sources=len(registry.list_available()),
     )
