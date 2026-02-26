@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 app = FastAPI(
@@ -219,3 +220,69 @@ async def list_llm_backends():
     from src.core.llm_backends import list_backends
 
     return {"backends": list_backends()}
+
+
+@app.post("/query/stream")
+async def query_stream(req: QueryRequest):
+    """Stream a query response as Server-Sent Events."""
+    from src.core.streaming import stream_query
+
+    async def event_generator():
+        async for event in stream_query(req.question):
+            yield event.to_sse()
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+class PortfolioAddRequest(BaseModel):
+    ticker: str = Field(..., min_length=1)
+    shares: float = Field(..., gt=0)
+    cost_per_share: float = Field(..., gt=0)
+
+
+class PortfolioRemoveRequest(BaseModel):
+    ticker: str = Field(..., min_length=1)
+    shares: float | None = Field(None, description="Shares to remove (all if omitted)")
+
+
+# In-memory portfolio (per-process)
+_portfolio = None
+
+
+def _get_portfolio():
+    global _portfolio
+    if _portfolio is None:
+        from src.core.portfolio import Portfolio
+
+        _portfolio = Portfolio()
+    return _portfolio
+
+
+@app.get("/portfolio")
+async def get_portfolio():
+    """Get portfolio summary and holdings."""
+    p = _get_portfolio()
+    return {
+        "name": p.name,
+        "holdings": [h.to_dict() for h in p.holdings],
+        "summary": p.summary().to_dict(),
+        "allocation": p.allocation(),
+    }
+
+
+@app.post("/portfolio/add")
+async def portfolio_add(req: PortfolioAddRequest):
+    """Add a holding to the portfolio."""
+    p = _get_portfolio()
+    h = p.add(req.ticker, req.shares, req.cost_per_share)
+    return {"status": "ok", "holding": h.to_dict()}
+
+
+@app.post("/portfolio/remove")
+async def portfolio_remove(req: PortfolioRemoveRequest):
+    """Remove a holding from the portfolio."""
+    p = _get_portfolio()
+    ok = p.remove(req.ticker, req.shares)
+    if not ok:
+        raise HTTPException(status_code=404, detail=f"Ticker {req.ticker} not in portfolio")
+    return {"status": "ok"}

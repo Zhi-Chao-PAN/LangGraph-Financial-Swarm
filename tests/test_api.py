@@ -109,9 +109,7 @@ class TestReportEndpoint:
             "balance_sheet": {},
             "cashflow": {},
         }
-        resp = client.post(
-            "/report", json={"ticker": "NVDA", "language": "zh"}
-        )
+        resp = client.post("/report", json={"ticker": "NVDA", "language": "zh"})
         assert resp.status_code == 200
 
 
@@ -122,3 +120,62 @@ class TestBackendsEndpoint:
         resp = client.get("/backends")
         assert resp.status_code == 200
         assert "backends" in resp.json()
+
+
+class TestStreamEndpoint:
+    def test_stream(self):
+        resp = client.post("/query/stream", json={"question": "NVIDIA revenue?"})
+        assert resp.status_code == 200
+        assert "text/event-stream" in resp.headers["content-type"]
+        body = resp.text
+        assert "event:" in body
+        assert "data:" in body
+
+
+class TestPortfolioEndpoints:
+    def test_empty_portfolio(self):
+        # Reset global portfolio
+        import src.api.server as srv
+
+        srv._portfolio = None
+        resp = client.get("/portfolio")
+        assert resp.status_code == 200
+        assert resp.json()["summary"]["holdings_count"] == 0
+
+    def test_add_and_get(self):
+        import src.api.server as srv
+
+        srv._portfolio = None
+        client.post(
+            "/portfolio/add",
+            json={"ticker": "AAPL", "shares": 10, "cost_per_share": 150.0},
+        )
+        client.post(
+            "/portfolio/add",
+            json={"ticker": "NVDA", "shares": 5, "cost_per_share": 800.0},
+        )
+        resp = client.get("/portfolio")
+        data = resp.json()
+        assert data["summary"]["holdings_count"] == 2
+        assert len(data["allocation"]) == 2
+
+    def test_remove(self):
+        import src.api.server as srv
+
+        srv._portfolio = None
+        client.post(
+            "/portfolio/add",
+            json={"ticker": "AAPL", "shares": 10, "cost_per_share": 150.0},
+        )
+        resp = client.post("/portfolio/remove", json={"ticker": "AAPL"})
+        assert resp.status_code == 200
+
+        resp = client.get("/portfolio")
+        assert resp.json()["summary"]["holdings_count"] == 0
+
+    def test_remove_nonexistent(self):
+        import src.api.server as srv
+
+        srv._portfolio = None
+        resp = client.post("/portfolio/remove", json={"ticker": "ZZZ"})
+        assert resp.status_code == 404
