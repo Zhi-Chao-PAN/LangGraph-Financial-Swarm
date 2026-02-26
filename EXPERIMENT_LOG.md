@@ -75,7 +75,9 @@
 | Config Validation | Done | Startup warnings for bad settings, 4 tests |
 | Streamlit Web UI | Done | Dashboard, query, history, export, cache mgmt |
 | Docker | Done | Dockerfile + docker-compose with Ollama |
-| Tests | 215 total | +73 from v0.8.0 |
+| Tests | 227 total | +85 from v0.8.0 |
+| Concurrent Queries | Done | ThreadPoolExecutor for multi-entity, max 4 workers, 2 tests |
+| Index Persistence | Done | MD5 hash check, auto-rebuild on data change, faster startup |
 
 ## Environment
 
