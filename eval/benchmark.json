@@ -418,5 +418,215 @@
     "type": "multi_hop",
     "difficulty": "hard",
     "id": 60
+  },
+  {
+    "id": 61,
+    "question": "What was Alphabet's total revenue in FY2024?",
+    "answer": "350,018",
+    "type": "single_hop",
+    "difficulty": "easy"
+  },
+  {
+    "id": 62,
+    "question": "What was Alphabet's net income in FY2023?",
+    "answer": "73,795",
+    "type": "single_hop",
+    "difficulty": "easy"
+  },
+  {
+    "id": 63,
+    "question": "What was Alphabet's gross margin in FY2024?",
+    "answer": "57.7%",
+    "type": "single_hop",
+    "difficulty": "easy"
+  },
+  {
+    "id": 64,
+    "question": "What was Google Cloud revenue in FY2024?",
+    "answer": "43,232",
+    "type": "single_hop",
+    "difficulty": "easy"
+  },
+  {
+    "id": 65,
+    "question": "What was Alphabet's operating income in FY2025?",
+    "answer": "132,000",
+    "type": "single_hop",
+    "difficulty": "easy"
+  },
+  {
+    "id": 66,
+    "question": "What was Alphabet's diluted EPS in FY2023?",
+    "answer": "5.80",
+    "type": "single_hop",
+    "difficulty": "easy"
+  },
+  {
+    "id": 67,
+    "question": "How did Alphabet's operating margin change from FY2022 to FY2024?",
+    "answer": "26.5% to 32.1%",
+    "type": "comparison",
+    "difficulty": "medium"
+  },
+  {
+    "id": 68,
+    "question": "What was the YoY revenue growth rate for Alphabet in FY2021?",
+    "answer": "41.2%",
+    "type": "single_hop",
+    "difficulty": "medium"
+  },
+  {
+    "id": 69,
+    "question": "Which Alphabet segment had the highest revenue in FY2024?",
+    "answer": "Google Search & Other",
+    "type": "single_hop",
+    "difficulty": "medium"
+  },
+  {
+    "id": 70,
+    "question": "What was Google Cloud's revenue growth from FY2021 to FY2024?",
+    "answer": "19,206 to 43,232",
+    "type": "comparison",
+    "difficulty": "medium"
+  },
+  {
+    "id": 71,
+    "question": "Compare Alphabet and NVIDIA net margin in FY2024",
+    "answer": "Alphabet 28.8%, NVIDIA 48.9%",
+    "type": "comparison",
+    "difficulty": "hard"
+  },
+  {
+    "id": 72,
+    "question": "Calculate Alphabet's R&D spending as a percentage of revenue in FY2025",
+    "answer": "13.8%",
+    "type": "calculation",
+    "difficulty": "hard"
+  },
+  {
+    "id": 73,
+    "question": "What was the trend in YouTube Ads revenue from FY2021 to FY2025?",
+    "answer": "28,845 to 42,000",
+    "type": "trend",
+    "difficulty": "hard"
+  },
+  {
+    "id": 74,
+    "question": "What was Amazon's total revenue in FY2024?",
+    "answer": "637,997",
+    "type": "single_hop",
+    "difficulty": "easy"
+  },
+  {
+    "id": 75,
+    "question": "What was Amazon's net income in FY2023?",
+    "answer": "30,425",
+    "type": "single_hop",
+    "difficulty": "easy"
+  },
+  {
+    "id": 76,
+    "question": "What was AWS revenue in FY2024?",
+    "answer": "107,364",
+    "type": "single_hop",
+    "difficulty": "easy"
+  },
+  {
+    "id": 77,
+    "question": "What was Amazon's gross margin in FY2025?",
+    "answer": "48.9%",
+    "type": "single_hop",
+    "difficulty": "easy"
+  },
+  {
+    "id": 78,
+    "question": "What was Amazon's operating income in FY2024?",
+    "answer": "68,594",
+    "type": "single_hop",
+    "difficulty": "easy"
+  },
+  {
+    "id": 79,
+    "question": "What was Amazon's diluted EPS in FY2024?",
+    "answer": "5.53",
+    "type": "single_hop",
+    "difficulty": "easy"
+  },
+  {
+    "id": 80,
+    "question": "How did Amazon's operating margin change from FY2022 to FY2024?",
+    "answer": "2.4% to 10.7%",
+    "type": "comparison",
+    "difficulty": "medium"
+  },
+  {
+    "id": 81,
+    "question": "What was Amazon's net income in FY2022?",
+    "answer": "-2,722",
+    "type": "single_hop",
+    "difficulty": "medium"
+  },
+  {
+    "id": 82,
+    "question": "Which Amazon segment had the highest revenue in FY2024?",
+    "answer": "North America",
+    "type": "single_hop",
+    "difficulty": "medium"
+  },
+  {
+    "id": 83,
+    "question": "What was AWS revenue growth from FY2021 to FY2024?",
+    "answer": "62,202 to 107,364",
+    "type": "comparison",
+    "difficulty": "medium"
+  },
+  {
+    "id": 84,
+    "question": "Compare Amazon and Microsoft operating margin in FY2024",
+    "answer": "Amazon 10.7%, Microsoft 44.6%",
+    "type": "comparison",
+    "difficulty": "hard"
+  },
+  {
+    "id": 85,
+    "question": "Calculate Amazon's R&D spending as a percentage of revenue in FY2023",
+    "answer": "14.9%",
+    "type": "calculation",
+    "difficulty": "hard"
+  },
+  {
+    "id": 86,
+    "question": "What was the trend in AWS revenue from FY2021 to FY2025?",
+    "answer": "62,202 to 125,000",
+    "type": "trend",
+    "difficulty": "hard"
+  },
+  {
+    "id": 87,
+    "question": "Which company had the highest revenue in FY2024: NVIDIA, Apple, Microsoft, Alphabet, or Amazon?",
+    "answer": "Amazon",
+    "type": "comparison",
+    "difficulty": "hard"
+  },
+  {
+    "id": 88,
+    "question": "Compare the net margins of all five companies in FY2024",
+    "answer": "NVIDIA 55.8%, Apple 26.4%, Microsoft 35.6%, Alphabet 28.8%, Amazon 9.3%",
+    "type": "comparison",
+    "difficulty": "hard"
+  },
+  {
+    "id": 89,
+    "question": "Which company had the highest R&D spending as percentage of revenue in FY2024?",
+    "answer": "Amazon",
+    "type": "comparison",
+    "difficulty": "hard"
+  },
+  {
+    "id": 90,
+    "question": "Rank all five companies by operating margin in FY2024 from highest to lowest",
+    "answer": "NVIDIA 65.2%, Microsoft 44.6%, Alphabet 32.1%, Apple 31.5%, Amazon 10.7%",
+    "type": "comparison",
+    "difficulty": "hard"
   }
 ]

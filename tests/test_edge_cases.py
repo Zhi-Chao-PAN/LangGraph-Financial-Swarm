@@ -25,6 +25,18 @@ class TestEdgeCaseDetection:
         result = _detect_companies("Tell me about Apple's gross margin")
         assert any("apple" in c.lower() for c in result)
 
+    def test_detect_google(self):
+        result = _detect_companies("What was Google Cloud revenue?")
+        assert any("google" in c.lower() for c in result)
+
+    def test_detect_amazon(self):
+        result = _detect_companies("Amazon AWS revenue in FY2024")
+        assert any("amazon" in c.lower() for c in result)
+
+    def test_detect_alphabet(self):
+        result = _detect_companies("Alphabet net income in FY2023")
+        assert any("alphabet" in c.lower() for c in result)
+
     def test_multi_entity_with_and(self):
         assert _is_multi_entity_question("NVIDIA and Apple revenue comparison")
 

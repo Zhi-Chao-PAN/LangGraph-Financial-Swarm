@@ -14,7 +14,7 @@ from src.core.types import AgentState
 from src.utils.robustness import log_agent_action
 
 # Known companies in our dataset
-KNOWN_COMPANIES = ["nvidia", "apple", "microsoft"]
+KNOWN_COMPANIES = ["nvidia", "apple", "microsoft", "alphabet", "google", "amazon"]
 
 REWRITE_PROMPT = """You are a financial query optimizer. Rewrite the user's question into 1-3 precise search queries for a financial RAG system.
 
