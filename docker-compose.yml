@@ -21,11 +21,11 @@ services:
       timeout: 5s
       retries: 5
 
-  swarm:
+  api:
     build: .
-    container_name: financial-swarm
+    container_name: financial-swarm-api
     ports:
-      - "8501:8501"
+      - "8000:8000"
     environment:
       - LLM_BASE_URL=http://ollama:11434
       - LLM_MODEL=deepseek-r1:8b
@@ -35,6 +35,23 @@ services:
     depends_on:
       ollama:
         condition: service_healthy
+    command: ["uvicorn", "src.api.server:app", "--host", "0.0.0.0", "--port", "8000"]
+
+  web:
+    build: .
+    container_name: financial-swarm-web
+    ports:
+      - "8501:8501"
+    environment:
+      - LLM_BASE_URL=http://ollama:11434
+      - LLM_MODEL=deepseek-r1:8b
+      - API_URL=http://api:8000
+    volumes:
+      - ./data:/app/data
+      - ./output:/app/output
+    depends_on:
+      - api
+    command: ["streamlit", "run", "src/ui/web.py", "--server.port=8501", "--server.address=0.0.0.0", "--server.headless=true"]
 
 volumes:
   ollama_data:
