@@ -32,6 +32,31 @@ class TestConfig:
     def test_llm_timeout(self):
         assert settings.LLM_TIMEOUT >= 60
 
+    def test_validate_returns_list(self):
+        warnings = settings.validate()
+        assert isinstance(warnings, list)
+
+    def test_validate_low_timeout(self):
+        from src.core.config import Settings
+
+        s = Settings(LLM_TIMEOUT=10)
+        warnings = s.validate()
+        assert any("timeout" in w.lower() for w in warnings)
+
+    def test_validate_high_temperature(self):
+        from src.core.config import Settings
+
+        s = Settings(LLM_TEMPERATURE=0.9)
+        warnings = s.validate()
+        assert any("temperature" in w.lower() for w in warnings)
+
+    def test_validate_low_top_k(self):
+        from src.core.config import Settings
+
+        s = Settings(RAG_TOP_K=1)
+        warnings = s.validate()
+        assert any("top_k" in w.lower() for w in warnings)
+
 
 # ─── Supervisor Routing ───
 
