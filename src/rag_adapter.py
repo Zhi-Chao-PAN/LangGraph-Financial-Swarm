@@ -175,8 +175,13 @@ class RAGAdapter:
         self._llm = None
         self._lock = asyncio.Lock()
 
+    def _get_index_persist_dir(self) -> str:
+        """Get the directory for persisted vector index."""
+        return str(settings.DATA_DIR / "vector_index")
+
     def _build_index(self):
-        """Build vector index and BM25 index with structure-aware chunking."""
+        """Build vector index and BM25 index with structure-aware chunking.
+        Loads persisted index if available and data hasn't changed."""
         log_agent_action("RAGAdapter", "Init", "Building hybrid index (vector + BM25)...")
 
         self._embed_model = HuggingFaceEmbedding(model_name=settings.EMBEDDING_MODEL)
@@ -196,7 +201,33 @@ class RAGAdapter:
 
         self._documents = _parse_sections(raw_text)
 
-        # Vector index
+        # Try loading persisted vector index
+        persist_dir = self._get_index_persist_dir()
+        data_hash_path = os.path.join(persist_dir, "data_hash.txt")
+        import hashlib
+
+        current_hash = hashlib.md5(raw_text.encode()).hexdigest()
+
+        if os.path.exists(persist_dir) and os.path.exists(data_hash_path):
+            try:
+                with open(data_hash_path, encoding="utf-8") as f:
+                    stored_hash = f.read().strip()
+                if stored_hash == current_hash:
+                    from llama_index.core import StorageContext, load_index_from_storage
+
+                    storage_context = StorageContext.from_defaults(persist_dir=persist_dir)
+                    self.index = load_index_from_storage(storage_context, embed_model=self._embed_model)
+                    self.query_engine = self.index.as_query_engine(
+                        similarity_top_k=settings.RAG_TOP_K,
+                        llm=self._llm,
+                    )
+                    self._bm25 = BM25Retriever(self._documents)
+                    log_agent_action("RAGAdapter", "Init", "Loaded persisted vector index (cache hit)")
+                    return self._llm
+            except Exception as e:
+                log_agent_action("RAGAdapter", "Init", f"Failed to load persisted index: {e}", level="warning")
+
+        # Build fresh index
         self.index = VectorStoreIndex.from_documents(
             self._documents,
             embed_model=self._embed_model,
@@ -205,6 +236,16 @@ class RAGAdapter:
             similarity_top_k=settings.RAG_TOP_K,
             llm=self._llm,
         )
+
+        # Persist index
+        try:
+            os.makedirs(persist_dir, exist_ok=True)
+            self.index.storage_context.persist(persist_dir=persist_dir)
+            with open(data_hash_path, "w", encoding="utf-8") as f:
+                f.write(current_hash)
+            log_agent_action("RAGAdapter", "Init", "Vector index persisted to disk")
+        except Exception as e:
+            log_agent_action("RAGAdapter", "Init", f"Failed to persist index: {e}", level="warning")
 
         # BM25 index
         self._bm25 = BM25Retriever(self._documents)
