@@ -7,8 +7,6 @@
 [![GitHub stars](https://img.shields.io/github/stars/Zhi-Chao-PAN/LangGraph-Financial-Swarm)](https://github.com/Zhi-Chao-PAN/LangGraph-Financial-Swarm/stargazers)
 [![GitHub issues](https://img.shields.io/github/issues/Zhi-Chao-PAN/LangGraph-Financial-Swarm)](https://github.com/Zhi-Chao-PAN/LangGraph-Financial-Swarm/issues)
 [![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Models-blue)](https://huggingface.co/Zhi-Chao-PAN)
-[![arXiv](https://img.shields.io/badge/arXiv-2503.12345-b31b1b.svg)](https://arxiv.org/abs/2503.12345)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.123458.svg)](https://doi.org/10.5281/zenodo.123458)
 [![LangChain](https://img.shields.io/badge/LangChain-0.1%2B-purple)](https://www.langchain.com/)
 [![Ollama](https://img.shields.io/badge/Ollama-Local%20LLMs-cyan)](https://ollama.ai/)
 
@@ -165,23 +163,14 @@ docker run -d \
 
 ## 📚 Citation
 
-If you use this code in your research, please cite:
+If you use this code, cite the software repository and include the release version or commit you used:
 
 ```bibtex
 @software{langgraph_financial_swarm,
   author = {Zhi-Chao Pan},
-  title = {LangGraph Financial Swarm: Heterogeneous Agent Orchestration for Financial Analysis},
+  title = {LangGraph Financial Swarm: A Structure-Aware Multi-Agent System for Financial Analysis},
   year = {2026},
-  url = {https://github.com/Zhi-Chao-PAN/LangGraph-Financial-Swarm},
-  doi = {10.5281/zenodo.123458}
-}
-
-@article{pan2026financialswarm,
-  author = {Pan, Zhichao},
-  title = {Hierarchical Multi-Agent Swarm for Financial Document Analysis: Achieving 88.4% Accuracy with Local Inference},
-  journal = {arXiv preprint},
-  year = {2026},
-  arxiv = {2503.12345}
+  url = {https://github.com/Zhi-Chao-PAN/LangGraph-Financial-Swarm}
 }
 ```
 
@@ -219,6 +208,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 <p align="center">
   Made with ❤️ by <a href="https://github.com/Zhi-Chao-PAN">ZhiChao Pan</a> | 
-  <a href="https://github.com/Zhi-Chao-PAN/LangGraph-Financial-Swarm">View on GitHub</a> |
-  <a href="https://arxiv.org/abs/2503.12345">Read the Paper</a>
+  <a href="https://github.com/Zhi-Chao-PAN/LangGraph-Financial-Swarm">View on GitHub</a>
 </p>
