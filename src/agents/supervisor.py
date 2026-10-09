@@ -1,10 +1,15 @@
 """
-Supervisor agent with LLM-based routing and deterministic fallback.
+Supervisor agent with structured JSON routing and deterministic fallback.
 
 Routes questions to Researcher or Quant agents, enforces max_rounds
 to prevent infinite loops, and detects completion conditions.
+
+SOTA enhancement:
+- Structured JSON output format for reliable routing
+- Eliminates fragile free-text parsing
 """
 
+import json
 import re
 from collections.abc import Callable
 from typing import Any
@@ -26,7 +31,8 @@ Rules:
 3. If an agent already provided a good answer -> FINISH
 4. Default to Researcher if unsure
 
-Respond with ONLY one word: Researcher, Quant, or FINISH"""
+Respond with ONLY valid JSON in this exact format:
+{"next": "<agent_name>", "reason": "<one-line reasoning>"}"""
 
 
 def create_supervisor_node(llm, members: list[str], max_rounds: int = 10) -> Callable:
@@ -121,12 +127,31 @@ def _keyword_route(question: str, members: list[str]) -> str:
 def _parse_routing(content: str, members: list[str]) -> str:
     """
     Extract routing decision from LLM output.
-    Looks for 'Next: <Role>' pattern or standalone agent name.
-    Falls back to Researcher on ambiguity.
+    Priority: JSON parse -> "Next: <Role>" pattern -> standalone word -> fallback.
     """
     valid = set(members + ["FINISH"])
 
-    # Try "Next: <agent>" pattern
+    # Priority 1: Try JSON parse (structured output)
+    try:
+        # Strip markdown code blocks if present
+        cleaned = re.sub(r"```json\s*", "", content)
+        cleaned = re.sub(r"```\s*$", "", cleaned).strip()
+        # Also strip <think> blocks
+        cleaned = re.sub(r"<think>.*?</think>", "", cleaned, flags=re.DOTALL).strip()
+
+        data = json.loads(cleaned)
+        if isinstance(data, dict):
+            candidate = data.get("next", "").strip()
+            for v in valid:
+                if candidate.lower() == v.lower():
+                    reason = data.get("reason", "")
+                    if reason:
+                        log_agent_action("Supervisor", "JSON Route", f"{v}: {reason[:100]}")
+                    return v
+    except (json.JSONDecodeError, AttributeError):
+        pass
+
+    # Priority 2: Try "Next: <agent>" pattern
     match = re.search(r"Next:\s*(\w+)", content, re.IGNORECASE)
     if match:
         candidate = match.group(1).strip()
@@ -134,13 +159,14 @@ def _parse_routing(content: str, members: list[str]) -> str:
             if candidate.lower() == v.lower():
                 return v
 
-    # Try standalone word match
+    # Priority 3: Try standalone word match
     clean = re.sub(r"<[^>]*>", "", content).strip()
+    clean = re.sub(r"<think>.*?</think>", "", clean, flags=re.DOTALL).strip()
     for v in valid:
         if v.lower() == clean.lower():
             return v
 
-    # Try last word
+    # Priority 4: Try last word
     words = clean.split()
     if words:
         last_word = words[-1].strip(".,;:!?\"'")

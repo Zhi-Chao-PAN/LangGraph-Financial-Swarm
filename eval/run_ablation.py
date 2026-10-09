@@ -31,6 +31,7 @@ from rich.console import Console
 from rich.progress import track
 from rich.table import Table
 
+from eval.eval_utils import check_answer
 from src.core.config import settings
 from src.core.llm import DirectOllamaChat
 
@@ -45,122 +46,11 @@ def load_benchmark():
         return json.load(f)
 
 
-# ── Answer checking (same as run_eval.py) ──────────────────────────
 
 
-def _extract_numbers(text: str) -> list[float]:
-    clean = text.replace(",", "").replace("$", "").replace("(", "-").replace(")", "")
-    raw = re.findall(r"-?[\d]+\.?\d*%?", clean)
-    nums = []
-    for r in raw:
-        try:
-            if r.endswith("%"):
-                nums.append(float(r[:-1]))
-            else:
-                nums.append(float(r))
-        except ValueError:
-            continue
-    return nums
+# Answer checking is now in eval.eval_utils (shared module)
 
 
-def _approx_match(a: float, b: float, tol: float = 0.05) -> bool:
-    if a == b:
-        return True
-    if b == 0:
-        return abs(a) < 0.01
-    return abs(a - b) / max(abs(b), 1e-9) <= tol
-
-
-def _extract_entities(text: str) -> set[str]:
-    entities = set()
-    lower = text.lower()
-    for name in [
-        "data center",
-        "gaming",
-        "automotive",
-        "professional visualization",
-        "united states",
-        "china",
-        "taiwan",
-        "singapore",
-        "nvidia",
-        "apple",
-        "microsoft",
-        "intelligent cloud",
-        "iphone",
-        "mac",
-        "services",
-    ]:
-        if name in lower:
-            entities.add(name)
-    for m in re.finditer(r"fy\d{4}", lower):
-        entities.add(m.group())
-    growth_terms = ["increase", "increased", "grew", "growth", "grow", "up from", "higher"]
-    decline_terms = ["decrease", "decreased", "decline", "declined", "dropped", "drop", "lower", "fell"]
-    compare_terms = ["better", "worse", "fluctuat", "not consistently", "inconsistent"]
-    if any(t in lower for t in growth_terms):
-        entities.add("growth")
-    if any(t in lower for t in decline_terms):
-        entities.add("decline")
-    if any(t in lower for t in compare_terms):
-        entities.add("comparison")
-    return entities
-
-
-def check_answer(predicted: str, ground_truth: str) -> dict:
-    pred_lower = predicted.lower().strip()
-    gt_lower = ground_truth.lower().strip()
-    gt_nums = _extract_numbers(gt_lower)
-    pred_nums = _extract_numbers(pred_lower)
-    matched = 0
-    for gn in gt_nums:
-        for pn in pred_nums:
-            if _approx_match(pn, gn):
-                matched += 1
-                break
-    total_nums = max(len(gt_nums), 1)
-    if matched == len(gt_nums):
-        number_score = 1.0
-    elif matched > 0:
-        number_score = max(0.5, matched / total_nums)
-    else:
-        number_score = 0.0
-    gt_entities = _extract_entities(gt_lower)
-    pred_entities = _extract_entities(pred_lower)
-    if gt_entities:
-        entity_overlap = len(gt_entities & pred_entities) / len(gt_entities)
-    else:
-        entity_overlap = 1.0 if number_score > 0 else 0.0
-    if gt_nums and gt_entities:
-        partial_score = 0.5 * number_score + 0.5 * entity_overlap
-    elif gt_nums:
-        partial_score = 0.8 * number_score + 0.2 * entity_overlap
-    else:
-        partial_score = 0.3 * number_score + 0.7 * entity_overlap
-    if entity_overlap >= 0.8 and number_score >= 0.5:
-        partial_score = max(partial_score, 0.75)
-    if entity_overlap >= 0.8 and len(gt_nums) <= 1:
-        partial_score = max(partial_score, 0.6)
-    correct = partial_score >= 0.45
-    is_hallucination = number_score == 0 and entity_overlap < 0.3 and len(pred_lower) > 50 and "error" not in pred_lower
-    reasons = []
-    if number_score == 1.0:
-        reasons.append(f"All {len(gt_nums)} numbers matched")
-    elif number_score > 0:
-        reasons.append(f"{matched}/{len(gt_nums)} numbers matched (approx)")
-    else:
-        reasons.append("No numbers matched")
-    if entity_overlap > 0:
-        reasons.append(f"Entity overlap: {entity_overlap:.0%}")
-    return {
-        "correct": correct,
-        "hallucination": is_hallucination,
-        "partial_score": round(partial_score, 3),
-        "number_recall": round(number_score, 3),
-        "entity_overlap": round(entity_overlap, 3),
-        "qualitative_match": entity_overlap > 0.3,
-        "reasoning": "; ".join(reasons),
-    }
 
 
 # ── Ablation RAG Adapter (naive chunking) ──────────────────────────

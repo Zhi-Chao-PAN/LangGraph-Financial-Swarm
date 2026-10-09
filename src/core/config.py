@@ -32,6 +32,18 @@ class Settings(BaseSettings):
     # RAG Settings
     RAG_DATA_PATH: Path = Field(default_factory=lambda: Path.cwd() / "data" / "parsed" / "llamaparse" / "parsed.md")
     RAG_TOP_K: int = 5
+    RAG_TOP_K_MIN: int = 3
+    RAG_TOP_K_MAX: int = 15
+
+    # Reranker Settings (Cross-Encoder for precision boost)
+    RERANKER_ENABLED: bool = Field(default=False, description="Enable cross-encoder reranking after hybrid retrieval")
+    RERANKER_MODEL: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    RERANKER_TOP_K: int = 5
+
+    # Grounding Verification (NLI-based faithfulness check)
+    GROUNDING_ENABLED: bool = Field(default=False, description="Enable NLI-based answer grounding verification")
+    GROUNDING_MODEL: str = "cross-encoder/nli-deberta-v3-small"
+    GROUNDING_THRESHOLD: float = Field(default=0.5, ge=0.0, le=1.0)
 
     # Optional Keys
     LLAMA_CLOUD_API_KEY: str | None = None

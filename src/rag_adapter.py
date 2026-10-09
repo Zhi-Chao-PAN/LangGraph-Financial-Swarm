@@ -4,6 +4,12 @@ async query support, caching with TTL, and retry with backoff.
 
 Hybrid search uses Reciprocal Rank Fusion (RRF) to combine BM25 lexical
 matching with dense vector retrieval for better recall on financial queries.
+
+SOTA enhancements:
+- Cross-Encoder reranker for precision boost after RRF
+- Sliding window context overlap between chunks
+- Weighted RRF fusion (configurable BM25 vs vector weights)
+- Adaptive Top-K based on query complexity
 """
 
 import asyncio
@@ -115,6 +121,38 @@ def _parse_sections(text: str) -> list[Document]:
     return documents
 
 
+def _add_context_overlap(documents: list[Document], overlap_lines: int = 3) -> list[Document]:
+    """
+    Add sliding window context overlap between adjacent chunks.
+    Injects the last N lines of the previous chunk as prefix context
+    to improve cross-section reference resolution.
+    """
+    if overlap_lines <= 0 or len(documents) < 2:
+        return documents
+
+    enhanced = [documents[0]]  # first chunk unchanged
+    for i in range(1, len(documents)):
+        prev_text = documents[i - 1].text
+        prev_lines = prev_text.strip().split("\n")
+        overlap = "\n".join(prev_lines[-overlap_lines:])
+
+        # Only add overlap if chunks are from the same company
+        same_company = (
+            documents[i].metadata.get("company", "")
+            == documents[i - 1].metadata.get("company", "")
+        )
+
+        if same_company and overlap.strip():
+            new_text = f"[Context]\n{overlap}\n\n{documents[i].text}"
+            new_meta = dict(documents[i].metadata)
+            new_meta["has_overlap"] = True
+            enhanced.append(Document(text=new_text, metadata=new_meta))
+        else:
+            enhanced.append(documents[i])
+
+    return enhanced
+
+
 def _tokenize(text: str) -> list[str]:
     """Simple tokenizer for BM25: lowercase, split on non-alphanumeric."""
     return re.findall(r"[a-z0-9]+(?:\.[0-9]+)?", text.lower())
@@ -123,16 +161,21 @@ def _tokenize(text: str) -> list[str]:
 def _reciprocal_rank_fusion(
     rankings: list[list[int]],
     k: int = 60,
+    weights: list[float] | None = None,
 ) -> list[tuple[int, float]]:
     """
-    Reciprocal Rank Fusion (RRF) to merge multiple ranked lists.
+    Weighted Reciprocal Rank Fusion (RRF) to merge multiple ranked lists.
     Each ranking is a list of document indices ordered by relevance.
+    Supports per-ranking weights for configurable BM25 vs vector emphasis.
     Returns list of (doc_index, rrf_score) sorted by score descending.
     """
+    if weights is None:
+        weights = [1.0] * len(rankings)
+
     scores: dict[int, float] = {}
-    for ranking in rankings:
+    for w, ranking in zip(weights, rankings, strict=False):
         for rank, doc_idx in enumerate(ranking):
-            scores[doc_idx] = scores.get(doc_idx, 0.0) + 1.0 / (k + rank + 1)
+            scores[doc_idx] = scores.get(doc_idx, 0.0) + w / (k + rank + 1)
     return sorted(scores.items(), key=lambda x: x[1], reverse=True)
 
 
@@ -158,10 +201,70 @@ class BM25Retriever:
         return self._documents[idx]
 
 
+def _compute_adaptive_top_k(question: str) -> int:
+    """
+    Dynamically adjust retrieval depth based on query complexity.
+    Simple lookups need fewer chunks; multi-entity comparisons need more.
+    """
+    q_lower = question.lower()
+
+    # Multi-entity/comparison queries need more context
+    multi_indicators = [
+        "compare", "vs", "versus", "which company", "highest",
+        "lowest", "between", "rank", "all five", "all three",
+        "respectively",
+    ]
+    multi_count = sum(1 for ind in multi_indicators if ind in q_lower)
+
+    # Trend/time-range queries need more context
+    trend_indicators = [
+        "trend", "cagr", "growth", "from fy", "to fy",
+        "over time", "year over year",
+    ]
+    trend_count = sum(1 for ind in trend_indicators if ind in q_lower)
+
+    # Count mentioned companies
+    companies = ["nvidia", "apple", "microsoft", "alphabet", "google", "amazon"]
+    company_count = sum(1 for c in companies if c in q_lower)
+
+    # Base top-k
+    top_k = settings.RAG_TOP_K
+
+    # Scale up for complexity
+    if multi_count >= 2 or company_count >= 3:
+        top_k = settings.RAG_TOP_K_MAX
+    elif multi_count >= 1 or company_count >= 2:
+        top_k = min(settings.RAG_TOP_K + 5, settings.RAG_TOP_K_MAX)
+    elif trend_count >= 1:
+        top_k = min(settings.RAG_TOP_K + 3, settings.RAG_TOP_K_MAX)
+
+    # Simple single-entity lookups can use fewer
+    if multi_count == 0 and trend_count == 0 and company_count <= 1:
+        top_k = max(settings.RAG_TOP_K_MIN, settings.RAG_TOP_K - 1)
+
+    return top_k
+
+
+def _detect_query_type(question: str) -> str:
+    """
+    Classify query type for weighted RRF fusion.
+    'numeric' queries benefit from BM25; 'semantic' from vector.
+    """
+    q_lower = question.lower()
+    numeric_indicators = [
+        "revenue", "income", "margin", "eps", "cash flow",
+        "how much", "what was", "calculate", "ratio", "fy20",
+        "spending", "assets", "debt", "equity",
+    ]
+    if sum(1 for ind in numeric_indicators if ind in q_lower) >= 2:
+        return "numeric"
+    return "semantic"
+
+
 class RAGAdapter:
     """
     Adapter for LlamaIndex RAG with hybrid search (BM25 + vector),
-    structure-aware chunking, and caching.
+    structure-aware chunking, cross-encoder reranking, and caching.
     """
 
     def __init__(self, cache_ttl: int = 86400) -> None:
@@ -174,6 +277,7 @@ class RAGAdapter:
         self._embed_model = None
         self._llm = None
         self._lock = asyncio.Lock()
+        self._reranker = None  # Lazy-loaded cross-encoder
 
     def _get_index_persist_dir(self) -> str:
         """Get the directory for persisted vector index."""
@@ -200,6 +304,9 @@ class RAGAdapter:
             raw_text = f.read()
 
         self._documents = _parse_sections(raw_text)
+
+        # Add context overlap between adjacent chunks
+        self._documents = _add_context_overlap(self._documents, overlap_lines=3)
 
         # Try loading persisted vector index
         persist_dir = self._get_index_persist_dir()
@@ -300,13 +407,41 @@ class RAGAdapter:
 
         return self.add_documents(new_docs)
 
+    def _get_reranker(self):
+        """Lazy-load cross-encoder reranker model."""
+        if self._reranker is not None:
+            return self._reranker
+        if not settings.RERANKER_ENABLED:
+            return None
+        try:
+            from sentence_transformers import CrossEncoder
+
+            self._reranker = CrossEncoder(settings.RERANKER_MODEL, max_length=512)
+            log_agent_action("RAGAdapter", "Reranker", f"Loaded {settings.RERANKER_MODEL}")
+            return self._reranker
+        except ImportError:
+            log_agent_action("RAGAdapter", "Reranker", "sentence-transformers not installed", level="warning")
+            return None
+        except Exception as e:
+            log_agent_action("RAGAdapter", "Reranker", f"Failed to load: {e}", level="warning")
+            return None
+
     def _hybrid_retrieve(self, question: str, top_k: int | None = None) -> list[Document]:
         """
-        Hybrid retrieval: BM25 + vector, fused with RRF.
-        Returns top_k documents ranked by combined score.
+        Hybrid retrieval: BM25 + vector, fused with weighted RRF.
+        Optionally applies cross-encoder reranking for precision.
+        Uses adaptive top-k based on query complexity.
+        Returns top_k documents ranked by combined/reranker score.
         """
         if top_k is None:
-            top_k = settings.RAG_TOP_K
+            top_k = _compute_adaptive_top_k(question)
+
+        # Determine RRF weights based on query type
+        query_type = _detect_query_type(question)
+        if query_type == "numeric":
+            rrf_weights = [1.2, 0.8]  # Favor BM25 for numeric queries
+        else:
+            rrf_weights = [0.8, 1.2]  # Favor vector for semantic queries
 
         # BM25 ranking
         bm25_ranking = self._bm25.retrieve(question, top_k=top_k * 2)
@@ -315,20 +450,58 @@ class RAGAdapter:
         retriever = self.index.as_retriever(similarity_top_k=top_k * 2)
         vector_nodes = retriever.retrieve(question)
 
-        # Map vector results to document indices
+        # Map vector results to document indices + collect scores
         vector_ranking = []
+        vector_scores: dict[int, float] = {}
         for node in vector_nodes:
             idx = node.node.metadata.get("index")
             if idx is not None:
                 vector_ranking.append(idx)
+                vector_scores[idx] = node.score if hasattr(node, "score") and node.score else 0.0
 
-        # RRF fusion
-        fused = _reciprocal_rank_fusion([bm25_ranking, vector_ranking])
-        top_indices = [idx for idx, _ in fused[:top_k]]
+        # Weighted RRF fusion
+        fused = _reciprocal_rank_fusion(
+            [bm25_ranking, vector_ranking],
+            weights=rrf_weights,
+        )
+        top_indices = [idx for idx, _ in fused[:top_k * 2]]  # Get extra for reranking
 
-        results = [self._documents[i] for i in top_indices if i < len(self._documents)]
-        log_agent_action("RAGAdapter", "Hybrid", f"BM25={len(bm25_ranking)}, Vec={len(vector_ranking)}, Fused={len(results)}")
-        return results
+        candidates = [self._documents[i] for i in top_indices if i < len(self._documents)]
+
+        # Cross-encoder reranking (if enabled)
+        reranker = self._get_reranker()
+        if reranker and len(candidates) > 1:
+            pairs = [(question, doc.text[:512]) for doc in candidates]
+            try:
+                rerank_scores = reranker.predict(pairs)
+                scored = sorted(
+                    zip(candidates, rerank_scores),
+                    key=lambda x: float(x[1]),
+                    reverse=True,
+                )
+                candidates = [doc for doc, _ in scored[:top_k]]
+                log_agent_action(
+                    "RAGAdapter", "Rerank",
+                    f"Reranked {len(pairs)} candidates → top {len(candidates)}",
+                )
+            except Exception as e:
+                log_agent_action("RAGAdapter", "Rerank", f"Failed: {e}", level="warning")
+                candidates = candidates[:top_k]
+        else:
+            candidates = candidates[:top_k]
+
+        # Collect retrieval scores for confidence propagation
+        retrieval_scores = []
+        for doc in candidates:
+            idx = doc.metadata.get("index", -1)
+            retrieval_scores.append(vector_scores.get(idx, 0.5))
+
+        log_agent_action(
+            "RAGAdapter", "Hybrid",
+            f"BM25={len(bm25_ranking)}, Vec={len(vector_ranking)}, "
+            f"Final={len(candidates)}, Type={query_type}",
+        )
+        return candidates, retrieval_scores
 
     def query(self, question: str) -> dict[str, Any]:
         """Synchronous query with hybrid retrieval."""
@@ -340,7 +513,7 @@ class RAGAdapter:
             self._build_index()
 
         # Hybrid retrieve then synthesize
-        hybrid_docs = self._hybrid_retrieve(question)
+        hybrid_docs, retrieval_scores = self._hybrid_retrieve(question)
 
         if hybrid_docs:
             context = "\n\n".join(doc.text for doc in hybrid_docs)
@@ -372,6 +545,7 @@ class RAGAdapter:
             result = {
                 "model_answer": answer_text + f"\n\n**Citations**:\n{citation_str}",
                 "source_nodes": [doc.text for doc in hybrid_docs],
+                "retrieval_scores": retrieval_scores,
                 "latency_s": 0.0,
             }
         else:

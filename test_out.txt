@@ -1,0 +1,110 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.7, pytest-9.0.2, pluggy-1.6.0 -- D:\Anaconda\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\22304\Desktop\LangGraph-Financial-Swarm
+configfile: pyproject.toml
+plugins: anyio-4.2.0, langsmith-0.6.7, asyncio-1.3.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 6 items
+
+tests/test_vision_components.py::TestInMemoryTensorCache::test_cache_initialization PASSED [ 16%]
+tests/test_vision_components.py::TestInMemoryTensorCache::test_add_page PASSED [ 33%]
+tests/test_vision_components.py::TestInMemoryTensorCache::test_get_batch_padding PASSED [ 50%]
+tests/test_vision_components.py::TestMaxSimRetriever::test_arithmetic_correctness PASSED [ 66%]
+tests/test_vision_components.py::TestMaxSimRetriever::test_bfloat16_execution PASSED [ 83%]
+tests/test_vision_components.py::TestColPaliEncoder::test_fallback_mock FAILED [100%]
+
+================================== FAILURES ===================================
+____________________ TestColPaliEncoder.test_fallback_mock ____________________
+
+self = <tests.test_vision_components.TestColPaliEncoder object at 0x0000023F3A2AC890>
+
+    def test_fallback_mock(self):
+        """Tests that if ColPali engine is removed, the architecture still streams dummy data."""
+        # Using mock encoder
+        encoder = ColPaliEncoder(device="cpu", dtype=torch.bfloat16)
+    
+        # Note: We won't actually pass real PIL images since it ignores them in mock mode anyway,
+        # but type hinting says List[Image]
+>       embs = encoder.encode_pages([None, None])
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_vision_components.py:134: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+D:\Anaconda\Lib\site-packages\torch\utils\_contextlib.py:116: in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+src\vision\colpali_encoder.py:105: in encode_pages
+    inputs = self.processor(images=images, return_tensors="pt")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+D:\Anaconda\Lib\site-packages\transformers\models\paligemma\processing_paligemma.py:219: in __call__
+    images, text = _validate_images_text_input_order(images, text)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+images = [None, None], text = None
+
+    def _validate_images_text_input_order(images, text):
+        """
+        For backward compatibility: reverse the order of `images` and `text` inputs if they are swapped.
+        This method should only be called for processors where `images` and `text` have been swapped for uniformization purposes.
+        Note that this method assumes that two `None` inputs are valid inputs. If this is not the case, it should be handled
+        in the processor's `__call__` method before calling this method.
+        """
+    
+        def is_url(val) -> bool:
+            return isinstance(val, str) and val.startswith("http")
+    
+        def _is_valid_images_input_for_processor(imgs):
+            # If we have an list of images, make sure every image is valid
+            if isinstance(imgs, (list, tuple)):
+                for img in imgs:
+                    if not _is_valid_images_input_for_processor(img):
+                        return False
+            # If not a list or tuple, we have been given a single image or batched tensor of images
+            elif not (is_valid_image(imgs) or is_url(imgs)):
+                return False
+            return True
+    
+        def _is_valid_text_input_for_processor(t):
+            if isinstance(t, str):
+                # Strings are fine
+                return True
+            elif isinstance(t, (list, tuple)):
+                # List are fine as long as they are...
+                if len(t) == 0:
+                    # ... not empty
+                    return False
+                for t_s in t:
+                    return _is_valid_text_input_for_processor(t_s)
+            return False
+    
+        def _is_valid(input, validator):
+            return validator(input) or input is None
+    
+        images_is_valid = _is_valid(images, _is_valid_images_input_for_processor)
+        images_is_text = _is_valid_text_input_for_processor(images)
+    
+        text_is_valid = _is_valid(text, _is_valid_text_input_for_processor)
+        text_is_images = _is_valid_images_input_for_processor(text)
+        # Handle cases where both inputs are valid
+        if images_is_valid and text_is_valid:
+            return images, text
+    
+        # Handle cases where inputs need to and can be swapped
+        if (images is None and text_is_images) or (text is None and images_is_text) or (images_is_text and text_is_images):
+            logger.warning_once(
+                "You may have used the wrong order for inputs. `images` should be passed before `text`. "
+                "The `images` and `text` inputs will be swapped. This behavior will be deprecated in transformers v4.47."
+            )
+            return text, images
+    
+>       raise ValueError("Invalid input type. Check that `images` and/or `text` are valid inputs.")
+E       ValueError: Invalid input type. Check that `images` and/or `text` are valid inputs.
+
+D:\Anaconda\Lib\site-packages\transformers\processing_utils.py:1465: ValueError
+---------------------------- Captured stderr call -----------------------------
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|¨€¨€¨€¨€¨€     | 1/2 [00:00<00:00,  1.92it/s]Loading checkpoint shards: 100%|¨€¨€¨€¨€¨€¨€¨€¨€¨€¨€| 2/2 [00:00<00:00,  3.09it/s]Loading checkpoint shards: 100%|¨€¨€¨€¨€¨€¨€¨€¨€¨€¨€| 2/2 [00:00<00:00,  2.83it/s]
+=========================== short test summary info ===========================
+FAILED tests/test_vision_components.py::TestColPaliEncoder::test_fallback_mock
+======================== 1 failed, 5 passed in 23.85s =========================

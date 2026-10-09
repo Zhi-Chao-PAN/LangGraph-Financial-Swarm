@@ -27,7 +27,8 @@ class TestEdgeCaseDetection:
 
     def test_detect_google(self):
         result = _detect_companies("What was Google Cloud revenue?")
-        assert any("google" in c.lower() for c in result)
+        # Google is normalized to 'alphabet' via entity normalizer
+        assert any("alphabet" in c.lower() or "google" in c.lower() for c in result)
 
     def test_detect_amazon(self):
         result = _detect_companies("Amazon AWS revenue in FY2024")
