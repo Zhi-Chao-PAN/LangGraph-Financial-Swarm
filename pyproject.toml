@@ -36,7 +36,19 @@ dependencies = [
     "tavily-python>=0.3.3"
 ]
 
+[tool.setuptools]
+py-modules = ["main"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[tool.setuptools.package-data]
+src = ["prompts/*.txt"]
+
 [tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
+asyncio_default_test_loop_scope = "function"
 testpaths = ["tests"]
 python_files = "test_*.py"
 
