@@ -1,6 +1,5 @@
-from langchain_ollama import ChatOllama
+from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage, AIMessage
-from src.tools.rag_tool import query_financial_rag
 from src.core.types import AgentState
 from src.core.prompts import Prompts
 from typing import Dict, Any, Callable, Sequence
@@ -10,7 +9,9 @@ from src.utils.robustness import log_agent_action
 from langchain_core.messages import SystemMessage
 
 
-def create_researcher_node(llm: ChatOllama) -> Callable[[AgentState], Dict[str, Any]]:
+def create_researcher_node(
+    llm: BaseChatModel,
+) -> Callable[[AgentState], Dict[str, Any]]:
     """
     Creates the Researcher node for financial data retrieval.
 

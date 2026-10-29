@@ -53,12 +53,17 @@ def test_plot_tool(tmp_path: Path, data: str) -> None:
         assert "2024,150" in csv_files[0].read_text()
 
 
-# Test LLM Connection (Skip if Ollama not running)
-@pytest.mark.skipif(os.getenv("CI") == "true", reason="Skipping local LLM test in CI")
+# Live model calls are explicitly enabled so the default suite is offline.
+@pytest.mark.skipif(
+    os.getenv("RUN_OLLAMA_TESTS") != "1",
+    reason="Set RUN_OLLAMA_TESTS=1 with a running Ollama model to test live inference",
+)
 def test_llm_connection() -> None:
     """Verify we can talk to Ollama."""
     try:
-        llm = ChatOllama(model=settings.LLM_MODEL, base_url=settings.LLM_BASE_URL)
+        llm = ChatOllama(
+            model=settings.LLM_MODEL, base_url=settings.LLM_BASE_URL, timeout=15
+        )
         resp = llm.invoke("Hello")
         assert resp.content is not None
     except Exception as e:

@@ -11,6 +11,7 @@ from src.core.config import settings
 # Configure structured logger with rotation
 logger = logging.getLogger("SwarmTracer")
 logger.setLevel(logging.INFO)
+logger.propagate = False
 
 handler = RotatingFileHandler(
     settings.LOG_FILE, maxBytes=5 * 1024 * 1024, backupCount=3

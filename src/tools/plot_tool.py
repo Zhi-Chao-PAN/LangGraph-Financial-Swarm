@@ -64,7 +64,13 @@ def create_plot(
 
         if plot_type == "bar":
             sns.barplot(
-                x=df.columns[0], y=df.columns[1], data=df, palette="viridis", ax=ax
+                x=df.columns[0],
+                y=df.columns[1],
+                hue=df.columns[0],
+                data=df,
+                palette="viridis",
+                legend=False,
+                ax=ax,
             )
             if (
                 plot_type == "bar" and "label" in df.columns

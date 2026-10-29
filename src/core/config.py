@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from pathlib import Path
 from pydantic import Field
 
@@ -32,15 +32,14 @@ class Settings(BaseSettings):
         / "llamaparse"
         / "parsed.md"
     )
-    RAG_TOP_K: int = 3
+    RAG_TOP_K: int = Field(default=3, gt=0)
 
     # Optional Keys
     LLAMA_CLOUD_API_KEY: str | None = None
 
-    class Config:
-        case_sensitive = True
-        env_file = ".env"
-        extra = "ignore"  # Allow extra keys in .env
+    model_config = SettingsConfigDict(
+        case_sensitive=True, env_file=".env", extra="ignore"
+    )
 
     def ensure_dirs(self) -> None:
         self.DATA_DIR.mkdir(parents=True, exist_ok=True)

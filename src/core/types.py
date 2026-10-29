@@ -1,7 +1,7 @@
 # src/types.py
 from typing import TypedDict, Annotated, Sequence, Dict, Any, Union, List
 from langchain_core.messages import BaseMessage
-import operator
+from langgraph.graph.message import add_messages
 
 
 class AgentMetadata(TypedDict, total=False):
@@ -19,7 +19,7 @@ class AgentState(TypedDict):
     """
 
     # messages: Append-only list of chat messages
-    messages: Annotated[Sequence[BaseMessage], operator.add]
+    messages: Annotated[Sequence[BaseMessage], add_messages]
 
     # next: The next node to route to
     next: str
