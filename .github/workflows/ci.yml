@@ -8,6 +8,18 @@ on:
   workflow_dispatch:  # Manual triggers
 
 jobs:
+  scoring-regressions:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: python -m unittest discover -s tests -p test_evaluate_metrics.py -v
+
   code-analysis:
     runs-on: ubuntu-latest
     steps:
@@ -18,7 +30,7 @@ jobs:
         python-version: '3.10'
     - name: Install analysis tools
       run: |
-        pip install black flake8 mypy isort radon
+        pip install black==25.1.0 flake8==7.1.2 mypy==2.4.1 isort radon
     - name: Check formatting with black
       run: black --check --diff .
     - name: Lint with flake8
@@ -37,7 +49,7 @@ jobs:
     needs: code-analysis
     strategy:
       matrix:
-        python-version: [3.9, 3.10, 3.11]
+        python-version: ["3.10", "3.11"]
     
     steps:
     - uses: actions/checkout@v4
@@ -48,14 +60,15 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        pip install torch --index-url https://download.pytorch.org/whl/cpu
+        pip install -e .
         pip install pytest pytest-cov pytest-asyncio pytest-mock
     - name: Run unit tests
       run: |
         echo "Running multi-agent system unit tests..."
         
         if [ -d "tests" ]; then
-          pytest tests/ -v \
+          python -m pytest tests/ -v \
             --cov=src \
             --cov-report=xml \
             --cov-report=html \
@@ -87,7 +100,7 @@ jobs:
         fi
     
     - name: Upload test results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: test-results-${{ matrix.python-version }}
         path: |
@@ -108,7 +121,8 @@ jobs:
         python-version: '3.10'
     - name: Install dependencies
       run: |
-        pip install -r requirements.txt
+        pip install torch --index-url https://download.pytorch.org/whl/cpu
+        pip install -e .
         pip install pytest pytest-asyncio
     - name: Run integration tests
       run: |
@@ -132,7 +146,7 @@ jobs:
         
         # Run integration tests if they exist
         if [ -f "tests/integration/test_swarm.py" ]; then
-          pytest tests/integration/ -v --tb=short
+          python -m pytest tests/integration/ -v --tb=short
         else
           echo "No integration tests found, running basic system check"
           python -c "
@@ -159,7 +173,8 @@ jobs:
         python-version: '3.10'
     - name: Install dependencies
       run: |
-        pip install -r requirements.txt
+        pip install torch --index-url https://download.pytorch.org/whl/cpu
+        pip install -e .
     - name: Validate agent configurations
       run: |
         echo "Validating multi-agent configurations..."
@@ -203,7 +218,8 @@ jobs:
         python-version: '3.10'
     - name: Install monitoring tools
       run: |
-        pip install -r requirements.txt
+        pip install torch --index-url https://download.pytorch.org/whl/cpu
+        pip install -e .
         pip install memory_profiler psutil
     - name: Run performance benchmarks
       run: |
@@ -249,6 +265,8 @@ jobs:
         free -h
 
   documentation-deploy:
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     needs: [code-analysis, unit-tests, agent-validation]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -272,7 +290,7 @@ jobs:
         # LangGraph Financial Swarm
         
         ## Overview
-        A hierarchical multi-agent system for financial analysis, achieving 88.4% accuracy with only 4.2% hallucination rate.
+        A prototype multi-agent system for financial analysis. Historical model-performance claims are unverified; see the repository README for evaluation scope.
         
         ## Architecture
         - **Supervisor Agent**: Orchestrates workflow
@@ -282,9 +300,9 @@ jobs:
         ## Performance
         | Metric | Value |
         |--------|-------|
-        | Accuracy | 88.4% |
-        | Hallucination Rate | 4.2% |
-        | Latency | 12.8s |
+        | Answer quality | Not remeasured |
+        | Hallucination rate | Not remeasured |
+        | Latency | Not remeasured |
         
         ## Quick Start
         ```bash

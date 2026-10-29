@@ -1,110 +1,130 @@
+"""Conservative exact matching of short final answers, not semantic grading."""
 
-import json
-import re
 import argparse
-from typing import List, Dict, Any
+import json
+import math
+import re
+import sys
+from decimal import Decimal
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
-def normalize_number(s: str) -> float:
-    """
-    Extracts the first floating point number from a string, normalizing units if possible.
-    Very basic implementation for exact match.
-    """
-    # Remove commas
-    s = s.replace(",", "")
-    # Find float pattern
-    match = re.search(r"[-+]?\d*\.\d+|\d+", s)
-    if match:
-        return float(match.group())
-    return None
+# Units must agree literally after case/whitespace normalization. No implicit
+# conversion between million/billion, percent/fraction, or currencies is made.
+NUMBER = r"[+-]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:[eE][+-]?\d+)?"
+VALUE = re.compile(rf"({NUMBER})(?:\s*(%|[a-zA-Z]+(?:\s+[a-zA-Z]+)*))?")
+SCORER_VERSION = "short-answer-exact-v2"
 
-def check_exact_match(model_answer: str, ground_truth: str) -> bool:
-    """
-    Evaluates if the model answer semantically contains the ground truth.
-    
-    Methodology:
-    1. Numerical Equivalence: Extracts floats and checks for equality within epsilon tolerance (1e-2).
-    2. String Inclusion: For non-numeric truths, checks for case-insensitive substring existence.
-    
-    Args:
-        model_answer (str): The raw output from the LLM.
-        ground_truth (str): The expected answer/value.
-        
-    Returns:
-        bool: True if the answer is judged correct, False otherwise.
-    """
-    if not ground_truth or ground_truth == "N/A":
-        return False
-        
-    # Strategy 1: Numerical Match
-    gt_val = normalize_number(str(ground_truth))
-    if gt_val is not None:
-        # Remove commas from model answer for regex
-        answer_clean = model_answer.replace(",", "")
-        numbers = re.findall(r"[-+]?\d*\.\d+|\d+", answer_clean)
-        
-        for num_str in numbers:
-            try:
-                val = float(num_str)
-                if abs(val - gt_val) < 0.01: # Epsilon tolerance
-                    return True
-            except:
-                continue
-    
-    # Strategy 2: Text Match (Fallback for qualitative answers)
-    # If no number found in GT (or even if found, maybe the text context matters?)
-    # For now, if numeric matching failed (or wasn't applicable), try naive inclusion.
-    if str(ground_truth).lower() in model_answer.lower():
-        return True
-        
-    return False
 
-def calculate_metrics(results: List[Dict[str, Any]]) -> Dict[str, Any]:
-    total = len(results)
-    if total == 0:
-        return {"accuracy": 0, "avg_latency": 0}
-        
-    correct_count = 0
-    total_latency = 0
-    
+def _text(value: object) -> str:
+    if isinstance(value, bool) or value is None:
+        return ""
+    if not isinstance(value, (str, int, float)):
+        return ""
+    return " ".join(str(value).strip().casefold().split())
+
+
+def _quantity(text: str) -> Optional[Tuple[Decimal, str]]:
+    match = VALUE.fullmatch(text)
+    if match is None:
+        return None
+    return Decimal(match[1].replace(",", "")), match[2] or ""
+
+
+def normalize_number(value: object) -> Optional[Decimal]:
+    """Parse only a complete, unitless numeric answer; never extract from prose."""
+    quantity = _quantity(_text(value))
+    return quantity[0] if quantity and not quantity[1] else None
+
+
+def score_answer(model_answer: object, ground_truth: object) -> str:
+    """Return match/mismatch/review_required/invalid_reference.
+
+    Callers must supply a short final answer, with units matching the reference.
+    Numeric prose is deliberately left for human review, even when it contains
+    the expected number. This avoids counting negations and intermediate values.
+    """
+    answer, truth = _text(model_answer), _text(ground_truth)
+    missing = {"", "n/a", "nan", "inf", "infinity", "-inf", "+inf"}
+    if truth in missing:
+        return "invalid_reference"
+    if answer in missing:
+        return "review_required"
+    aq, tq = _quantity(answer), _quantity(truth)
+    if tq is not None:
+        if aq is None:
+            return "review_required"
+        return "match" if aq == tq else "mismatch"
+    if re.search(r"\d", truth):
+        return "invalid_reference"
+    return "match" if answer == truth else "mismatch"
+
+
+def check_exact_match(model_answer: object, ground_truth: object) -> bool:
+    """Compatibility wrapper; unscorable answers are never reported as correct."""
+    return score_answer(model_answer, ground_truth) == "match"
+
+
+def calculate_metrics(results: object) -> Dict[str, Any]:
+    if not isinstance(results, list) or any(
+        not isinstance(row, dict) for row in results
+    ):
+        raise ValueError("input must be a JSON array of result objects")
+    counts = {
+        key: 0 for key in ("match", "mismatch", "review_required", "invalid_reference")
+    }
+    total_latency = 0.0
     for row in results:
-        is_correct = check_exact_match(row.get("model_answer", ""), row.get("ground_truth", ""))
-        row["is_correct"] = is_correct # Annotate result
-        if is_correct:
-            correct_count += 1
-        total_latency += row.get("latency_s", 0)
-        
+        latency = row.get("latency_s", 0)
+        if (
+            isinstance(latency, bool)
+            or not isinstance(latency, (int, float))
+            or not math.isfinite(latency)
+            or latency < 0
+        ):
+            raise ValueError("latency_s must be a finite, non-negative number")
+        # Preserve the original response; only an explicit final_answer overrides it.
+        status = score_answer(
+            row.get("final_answer", row.get("model_answer")), row.get("ground_truth")
+        )
+        row.update(
+            is_correct=status == "match",
+            score_status=status,
+            scorer_version=SCORER_VERSION,
+        )
+        counts[status] += 1
+        total_latency += latency
+    total = len(results)
     return {
-        "accuracy": correct_count / total,
-        "avg_latency": total_latency / total,
-        "total_samples": total
+        "scorer_version": SCORER_VERSION,
+        "accuracy": counts["match"] / total if total else 0.0,
+        "avg_latency": total_latency / total if total else 0.0,
+        "total_samples": total,
+        **counts,
     }
 
-def main():
-    parser = argparse.ArgumentParser(description="Calculate metrics for RAG experiment")
-    parser.add_argument("input_file", help="Path to JSON results file")
-    args = parser.parse_args()
-    
+
+def main(argv: Optional[List[str]] = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("input_file", type=Path)
+    args = parser.parse_args(argv)
     try:
-        with open(args.input_file, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            
+        data = json.loads(args.input_file.read_text(encoding="utf-8"))
         metrics = calculate_metrics(data)
-        
-        print("\n=== Evaluation Metrics ===")
-        print(f"Input File: {args.input_file}")
-        print(f"Total Samples: {metrics['total_samples']}")
-        print(f"Exact Match Accuracy: {metrics['accuracy']:.2%}")
-        print(f"Average Latency: {metrics['avg_latency']:.4f}s")
-        print("==========================\n")
-        
-        # Optionally save annotated results
-        output_file = args.input_file.replace(".json", "_scored.json")
-        with open(output_file, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
-        print(f"Scored results saved to: {output_file}")
-        
-    except Exception as e:
-        print(f"Error calculating metrics: {e}")
+        if not data:
+            raise ValueError("no evaluation samples")
+        print(json.dumps(metrics, indent=2))
+        output = args.input_file.with_name(args.input_file.stem + "_scored.json")
+        output.write_text(
+            json.dumps(data, indent=2, ensure_ascii=False, allow_nan=False) + "\n",
+            encoding="utf-8",
+        )
+        print(f"Scored results saved to: {output}")
+        return 0
+    except (OSError, ValueError, TypeError) as error:
+        print(f"Error calculating metrics: {error}", file=sys.stderr)
+        return 2
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

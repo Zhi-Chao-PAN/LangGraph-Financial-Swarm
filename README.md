@@ -10,7 +10,7 @@
 [![LangChain](https://img.shields.io/badge/LangChain-0.1%2B-purple)](https://www.langchain.com/)
 [![Ollama](https://img.shields.io/badge/Ollama-Local%20LLMs-cyan)](https://ollama.ai/)
 
-> 🚀 **Multi-Agent Breakthrough**: Hierarchical swarm architecture achieves **88.4% accuracy** with only **4.2% hallucination rate** on complex financial reasoning tasks.
+> A research prototype for local financial-document agents. Explore the orchestration and failure-handling code; historical accuracy claims require re-evaluation with the corrected scorer.
 
 <p align="center">
   <img src="https://img.shields.io/badge/Research%20Area-Multi%20Agent%20Systems-blueviolet" alt="Research Area">
@@ -36,7 +36,7 @@
 ---
 
 ## 🎯 Abstract
-In the domain of financial analysis, traditional Large Language Models (LLMs) often struggle with hallucination and lack of precision when handling quantitative data from complex, semi-structured documents (e.g., annual reports). This project introduces **LangGraph Financial Swarm**, a hierarchical multi-agent system designed to perform autonomous financial research and data visualization. By leveraging a **Structure-Aware Retrieval Augmented Generation (RAG)** mechanism and **Cyclic Graph Orchestration**, the system achieves higher accuracy in interpreting cross-page tables compared to standard RAG baselines. The architecture demonstrates how locally deployed quantized models (e.g., DeepSeek-R1) can effectively coordinate to solve multi-step reasoning tasks under compute-constrained environments.
+In the domain of financial analysis, traditional Large Language Models (LLMs) often struggle with hallucination and lack of precision when handling quantitative data from complex, semi-structured documents (e.g., annual reports). This project introduces **LangGraph Financial Swarm**, a hierarchical multi-agent system designed to perform autonomous financial research and data visualization. By leveraging a **Structure-Aware Retrieval Augmented Generation (RAG)** mechanism and **Cyclic Graph Orchestration**, the system explores whether layout-preserving retrieval can improve interpretation of cross-page tables. Comparative accuracy has not been re-established with the corrected scorer. The architecture demonstrates how locally deployed quantized models (e.g., DeepSeek-R1) can effectively coordinate to solve multi-step reasoning tasks under compute-constrained environments.
 
 ---
 
@@ -44,9 +44,9 @@ In the domain of financial analysis, traditional Large Language Models (LLMs) of
 
 Traditional **Sequential Chain** architectures (e.g., Chain-of-Thought) suffer from *error propagation* and *context window exhaustion* when handling multi-dimensional financial tasks. This project adopts a **Hierarchical Swarm** topology (conceptually aligned with *Multi-Agent Debate* and *Society of Mind*), offering three key advantages:
 
-1.  **Orchestration vs. Chaining**: Unlike rigid DAGs, the **Supervisor Agent** employs a *dynamic routing policy* based on the complexity of the query, allowing for non-linear execution paths (O(N) complexity reduced to O(1) for simple queries).
-2.  **Specialization & Isolation**: Financial data retrieval (Researcher) and visualization (Quant) operate in isolated scopes, preventing *context pollution* and ensuring that hallucinatory deviations in one domain do not corrupt the other.
-3.  **Grammar-Constrained Decoding**: Instead of relying on stochastic LLM outputs, tool calls are enforced via regex-based **Grammar-Constrained Decoding**, ensuring 100% syntactic validity for downstream execution.
+1.  **Orchestration vs. Chaining**: Unlike rigid DAGs, the **Supervisor Agent** employs a *dynamic routing policy* based on the complexity of the query, allowing for non-linear execution paths. No asymptotic speedup is claimed.
+2.  **Specialization & Isolation**: Financial data retrieval (Researcher) and visualization (Quant) operate in isolated scopes, reducing shared context. This does not guarantee isolation from hallucinated content.
+3.  **Post-generation tool parsing**: Regex-based parsing attempts to recover tool calls from generated text. It does not constrain model decoding or guarantee syntactic validity; malformed output requires validation and fallback.
 
 ---
 
@@ -61,7 +61,7 @@ The system implements a **hub-and-spoke** topology where a central Supervisor de
 *   **Supervisor (Orchestrator)**: Uses a **Deterministic Routing Policy** to analyze user intent and dispatch tasks.
 *   **Researcher (Data Node)**: Performs **Structure-Aware Retrieval** on financial documents.
 *   **Quant (Compute Node)**: Executes Python code for data analysis and visualization via a **Code Interpreter** environment.
-*   **Tool-Use Layer**: Implements **Grammar-Constrained Decoding** to map natural language to executable API calls.
+*   **Tool-Use Layer**: Parses generated text into candidate API calls after generation; this is not grammar-constrained decoding.
 
 The system utilizes a **Hierarchical Swarm** topology where a Supervisor Agent orchestrates specialized workers (Researcher and Quant). This design ensures separation of concerns and allows for modular scalability.
 
@@ -82,24 +82,32 @@ The system is optimized for **Local Compute Constraints**. By utilizing 4-bit qu
 
 ---
 
-## 📊 Evaluation (Preliminary)
+## 📊 Evaluation status
 
-We compared the Swarm architecture against a monolithic "Chat-with-PDF" baseline on a set of 50 financial queries requiring multi-hop reasoning (e.g., "Compare the operating margin of 2023 vs 2024").
+The earlier 88.4% accuracy / 4.2% hallucination headline is **not a validated
+current result**. The previous scorer accepted any matching number or substring,
+including negated values and mismatched units. The original table is retained in
+[the historical record](docs/historical-evaluation.md), not used as a benchmark.
 
-| Method | Accuracy (%) | Hallucination Rate (%) | Avg Latency (s) |
-| :--- | :---: | :---: | :---: |
-| Baseline (Standard RAG) | 62.0% | 18.5% | **4.2s** |
-| **Financial Swarm (Ours)** | **88.4%** | **4.2%** | 12.8s |
+`src/experiments/evaluate_metrics.py` now uses `short-answer-exact-v2`:
 
-*Note: The Swarm architecture trades latency for significantly improved precision and reasoning depth.*
+- Supply a short `final_answer` and a short `ground_truth`; otherwise the existing
+  `model_answer` is used. Original model responses are retained.
+- Numeric values must match exactly, including sign and units. Commas and decimal
+  notation are normalized; currency/scale/percentage conversions are not inferred.
+- Numeric prose is marked `review_required`, never accepted by substring match.
+- Report all four statuses: `match`, `mismatch`, `review_required`, and
+  `invalid_reference`. `accuracy` is matches divided by **all** rows; it is not
+  semantic accuracy and is not comparable to the historical metric.
+- This scorer does not measure hallucination. Human adjudication and saved
+  per-answer evidence are needed for that claim.
 
-### 🎯 Performance Highlights
-- **+26.4% accuracy improvement** over baseline
-- **-14.3% reduction in hallucination rate**
-- **Moderate latency increase** (3x) for 2x accuracy gain
-- **Fully local execution** on consumer hardware
+Run the dependency-free regression suite:
 
----
+```bash
+python -m unittest discover -s tests -p test_evaluate_metrics.py -v
+python src/experiments/evaluate_metrics.py path/to/results.json
+```
 
 ## 🚀 Quick Start
 
