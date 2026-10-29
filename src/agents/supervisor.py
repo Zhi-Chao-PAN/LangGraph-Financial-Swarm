@@ -1,4 +1,4 @@
-from langchain_ollama import ChatOllama
+from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 import re
 
@@ -14,7 +14,7 @@ from src.core.constants import ROLE_FINISH
 
 
 def create_supervisor_node(
-    llm: ChatOllama | Callable[[PromptValue], BaseMessage], members: List[str]
+    llm: BaseChatModel | Callable[[PromptValue], BaseMessage], members: List[str]
 ) -> Runnable[Dict[str, Any], Dict[str, str]]:
     """
     Creates the Supervisor node function (Regex Augmented for Robustness).

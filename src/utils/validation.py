@@ -53,17 +53,6 @@ def validate_dataframe(func: Callable[P, R]) -> Callable[P, R]:
 
 
 def sanitize_input(user_input: str) -> str:
-    """
-    Sanitize user input to prevent injection or overly long queries.
-    """
-    # 1. Strip whitespace
-    clean = user_input.strip()
-
-    # 2. Length check (Max 500 chars for financial query)
-    if len(clean) > 500:
-        clean = clean[:500]
-
-    # 3. Remove non-printable characters (basic filtering)
-    clean = re.sub(r"[^\x20-\x7E]", "", clean)
-
-    return clean
+    """Bound query length and remove control characters while preserving Unicode."""
+    clean = "".join(c for c in user_input if c.isprintable() or c in "\n\t")
+    return clean.strip()[:500]

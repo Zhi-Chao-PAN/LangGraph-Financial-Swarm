@@ -45,16 +45,16 @@ class RAGAdapter:
             "RAGAdapter", "Initialization", "Configuring Models & Loading Index..."
         )
 
+        data_path = settings.RAG_DATA_PATH
+        if not os.path.exists(data_path):
+            raise FileNotFoundError(f"RAG data not found at {data_path}")
+
         # 显式创建模型实例，不修改全局 Settings
         from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 
         embed_model = HuggingFaceEmbedding(model_name=settings.EMBEDDING_MODEL)
 
         # 加载数据
-        data_path = settings.RAG_DATA_PATH
-        if not os.path.exists(data_path):
-            raise FileNotFoundError(f"RAG data not found at {data_path}")
-
         documents = SimpleDirectoryReader(input_files=[data_path]).load_data()
 
         # 显式传入嵌入模型
@@ -88,7 +88,9 @@ class RAGAdapter:
 
             # 显式传入 LLM 到查询引擎
             llm = Ollama(model=settings.LLM_MODEL, base_url=settings.LLM_BASE_URL)
-            self.query_engine = self.index.as_query_engine(similarity_top_k=3, llm=llm)
+            self.query_engine = self.index.as_query_engine(
+                similarity_top_k=settings.RAG_TOP_K, llm=llm
+            )
 
     def query(self, question: str) -> RAGResult:
         """Synchronous entry point for callers outside an active event loop."""
@@ -102,9 +104,13 @@ class RAGAdapter:
         loop = asyncio.get_running_loop()
 
         # 1. Cache Check (Non-blocking)
-        cached_result = await loop.run_in_executor(
-            None, lambda: self.cache.get(question)
-        )
+        try:
+            cached_result = await loop.run_in_executor(
+                None, lambda: self.cache.get(question)
+            )
+        except Exception as exc:
+            log_agent_action("RAGAdapter", "CacheReadUnavailable", str(exc))
+            cached_result = None
         if _is_cached_result(cached_result):
             log_agent_action("RAGAdapter", "Query (Cache Hit)", f"Q: {question}")
             return cached_result
@@ -145,7 +151,12 @@ class RAGAdapter:
             log_agent_action("RAGAdapter", "Query", f"Q: {question}")
 
             # Set Cache
-            await loop.run_in_executor(None, lambda: self.cache.set(question, result))
+            try:
+                await loop.run_in_executor(
+                    None, lambda: self.cache.set(question, result)
+                )
+            except Exception as exc:
+                log_agent_action("RAGAdapter", "CacheWriteUnavailable", str(exc))
             return result
 
         except Exception as e:

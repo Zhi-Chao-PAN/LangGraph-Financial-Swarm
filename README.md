@@ -114,7 +114,7 @@ python src/experiments/evaluate_metrics.py path/to/results.json
 ### Prerequisites
 *   Python 3.10+
 *   Docker (Optional, for safe execution)
-*   Ollama (running `deepseek-r1` or `llama3`)
+*   Ollama with a downloaded model for live queries; unnecessary for the offline demo.
 
 ### Installation
 ```bash
@@ -126,13 +126,32 @@ cd LangGraph-Financial-Swarm
 pip install -e .
 ```
 
+### Offline graph demo (no model, API key or document corpus)
+
+```bash
+python main.py --demo --json
+```
+
+The scripted model and synthetic ExampleCo fixture run through the **same graph builder, supervisor, researcher, quant and tool routing as live queries**. The plotting tool really writes a PNG and CSV to `output/` (override with `OUTPUT_DIR`). JSON stdout records node execution, tool results and the synthetic answer. This verifies orchestration and export behavior; it does not measure model reasoning or financial accuracy.
+
+`--max-steps` sets the graph recursion budget (1–100, default 20) in both modes. The demo has a fixed query; `--demo --query ...` is rejected so arbitrary requests cannot receive the canned answer.
+
+### Regression checks
+
+```bash
+pip install -e '.[dev]'
+python -m pytest tests/ -q --asyncio-mode=auto
+```
+
+Tests cover the production graph, nested JSON tool arguments, Unicode queries, concurrent RAG initialization, cache failures and exported chart data. CI runs the offline demo separately and uploads its trace, PNG and CSV. Live Ollama integration requires `RUN_OLLAMA_TESTS=1`; no benchmark is inferred from scripted runs. The final CI health job fails if any required verification job fails or is cancelled.
+
 ### Configuration
 ```bash
 # Copy environment configuration
 cp .env.example .env
 
 # Edit .env with your settings
-# - Set OLLAMA_BASE_URL (default: http://localhost:11434)
+# - Set LLM_BASE_URL (default: http://localhost:11434)
 # - Configure model preferences
 ```
 
@@ -161,11 +180,9 @@ docker run -d \
 
 ---
 
-## 🔒 Security & Privacy
-*   **Containerized Isolation**: Code execution (plotting) is designed to run within sandbox environments.
-*   **Data Sovereignty**: All inference and RAG processes run locally. No data is sent to external APIs.
-*   **Secure Execution**: Docker containers with resource limits and network isolation.
-*   **GDPR Compliance**: All data processing stays within user's infrastructure.
+## 🔒 Execution and data boundaries
+
+The default inference endpoint is local Ollama. Actual data routing depends on `LLM_BASE_URL` and any tools you configure; verify those settings before processing private documents. Plot generation uses the fixed chart tool rather than generated Python code. Container isolation depends on your deployment configuration. This research prototype makes no GDPR compliance or production-readiness claim.
 
 ---
 
@@ -187,11 +204,8 @@ If you use this code, cite the software repository and include the release versi
 ## 🤝 Community & Contact
 
 ### 📬 Contact Information
-- **Author**: Zhichao Pan
-- **Email**: zhichao.pan@example.com
-- **LinkedIn**: [ZhiChao Pan](https://linkedin.com/in/zhichao-pan)
+- **Author**: ZhiChao Pan
 - **GitHub**: [@Zhi-Chao-PAN](https://github.com/Zhi-Chao-PAN)
-- **Twitter**: [@ZhiChao_PAN](https://twitter.com/ZhiChao_PAN)
 
 ### 🗣️ Community Engagement
 - **Issues**: [Report bugs or request features](https://github.com/Zhi-Chao-PAN/LangGraph-Financial-Swarm/issues)

@@ -2,14 +2,7 @@ import argparse
 import sys
 import asyncio
 import logging
-from langchain_ollama import ChatOllama
-from langgraph.graph import StateGraph, START, END
-from langgraph.prebuilt import ToolNode
 
-from src.core.types import AgentState
-from src.agents.supervisor import create_supervisor_node
-from src.agents.researcher import create_researcher_node
-from src.agents.chart_gen import create_quant_node
 from src.core.config import settings
 from src.utils.observability import Observability
 from src.utils.validation import sanitize_input
@@ -28,17 +21,51 @@ async def main() -> None:
     parser.add_argument(
         "--query",
         type=str,
-        default="Compare NVIDIA's revenue growth from 2023 to 2024.",
+        default=None,
         help="The financial question to answer.",
     )
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        help="Run the fixed synthetic offline graph and real chart export",
+    )
+    parser.add_argument(
+        "--json", action="store_true", help="Print the offline demo result as JSON"
+    )
+    parser.add_argument(
+        "--max-steps", type=int, default=20, help="Graph recursion limit (1-100)"
+    )
     args = parser.parse_args()
+    if not 1 <= args.max_steps <= 100:
+        parser.error("--max-steps must be between 1 and 100")
+    if args.demo:
+        if args.query is not None:
+            parser.error("--demo uses a fixed synthetic query; omit --query")
+        import json
+        from src.core.demo import run_demo
+
+        result = await run_demo(max_steps=args.max_steps)
+        print(json.dumps(result, ensure_ascii=False, indent=None if args.json else 2))
+        return
+    if args.json:
+        parser.error("--json is currently available with --demo")
+    query = (
+        args.query
+        if args.query is not None
+        else "Compare NVIDIA's revenue growth from 2023 to 2024."
+    )
 
     # Sanitize Input (Security Best Practice)
-    clean_query = sanitize_input(args.query)
+    clean_query = sanitize_input(query)
+    if not clean_query:
+        parser.error("--query must contain printable text")
 
     Observability.start_trace()
 
     # Initialize LLM (Configured in src/core/config.py)
+    from langchain_ollama import ChatOllama
+    from src.core.workflow import build_swarm_graph
+
     llm = ChatOllama(
         model=settings.LLM_MODEL,
         temperature=settings.LLM_TEMPERATURE,
@@ -46,62 +73,9 @@ async def main() -> None:
         timeout=settings.LLM_TIMEOUT,
     )
 
-    # 1. Create Nodes
-    from langgraph.prebuilt import ToolNode, tools_condition
-    from src.tools.rag_tool import query_financial_rag
-    from src.tools.plot_tool import create_plot
+    graph = build_swarm_graph(llm)
 
-    tools = [query_financial_rag, create_plot]
-    tool_node = ToolNode(tools)
-
-    members: list[str] = ["Researcher", "Quant"]
-    supervisor_node = create_supervisor_node(llm, members)
-    researcher_node = create_researcher_node(llm)
-    quant_node = create_quant_node(llm)
-
-    workflow = StateGraph(AgentState)
-
-    workflow.add_node("Supervisor", supervisor_node)
-    workflow.add_node("Researcher", researcher_node)
-    workflow.add_node("Quant", quant_node)
-    workflow.add_node("tools", tool_node)
-
-    # 2. Define Edges
-    # Workflow:
-    # Supervisor -> Researcher/Quant -> tools -> Researcher/Quant -> Supervisor
-
-    # Conditional edge from Supervisor to members
-    workflow.add_conditional_edges(
-        "Supervisor",
-        lambda x: x["next"],
-        {"Researcher": "Researcher", "Quant": "Quant", "FINISH": END},
-    )
-
-    # Clean tool routing logic
-    def route_tool_output(state: AgentState) -> str:
-        """Standard routing: Callers handle their own tool outputs."""
-        return state.get("sender", "Supervisor")
-
-    workflow.add_conditional_edges("tools", route_tool_output)
-
-    # Conditional edge for member agents
-    def should_continue(state: AgentState) -> str:
-        messages = state["messages"]
-        last_message = messages[-1]
-        if getattr(last_message, "tool_calls", None):
-            return "tools"
-        return "Supervisor"
-
-    for member in members:
-        workflow.add_conditional_edges(
-            member, should_continue, {"tools": "tools", "Supervisor": "Supervisor"}
-        )
-
-    workflow.add_edge(START, "Supervisor")
-
-    graph = workflow.compile()
-
-    print(f"Goal: {args.query}")
+    print(f"Goal: {query}")
     steps = 0
 
     from src.utils.observability import console
@@ -109,7 +83,7 @@ async def main() -> None:
     # 3. Run Graph Asynchronously
     with console.status("[bold blue]Agents are collaborating...[/]", spinner="dots"):
         async for s in graph.astream(
-            {"messages": [("user", clean_query)]}, {"recursion_limit": 20}
+            {"messages": [("user", clean_query)]}, {"recursion_limit": args.max_steps}
         ):
             steps += 1
             if "__end__" not in s:

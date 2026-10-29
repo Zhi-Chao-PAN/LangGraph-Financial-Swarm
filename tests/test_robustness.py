@@ -8,6 +8,7 @@ from src.rag_adapter import RAGAdapter
 from src.core.config import settings
 from src.core.prompts import Prompts
 from src.utils.robustness import retry_with_backoff
+from pathlib import Path
 
 
 @pytest.mark.asyncio
@@ -85,3 +86,66 @@ def test_prompts_are_loaded_from_bundled_files() -> None:
     assert Prompts.QUANT_SYSTEM == (Prompts.BASE_DIR / "quant.txt").read_text(
         encoding="utf-8"
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operation", ["get", "set"])
+async def test_cache_failure_does_not_discard_a_successful_answer(
+    operation: str,
+) -> None:
+    with patch("src.rag_adapter.dc.Cache") as factory:
+        factory.return_value.get.return_value = None
+        getattr(factory.return_value, operation).side_effect = OSError(
+            "cache unavailable"
+        )
+        adapter = RAGAdapter()
+        engine = MagicMock()
+        engine.aquery = AsyncMock(return_value="42")
+        adapter.query_engine = engine
+        result = await adapter.aquery("question")
+    assert result["model_answer"].startswith("42")
+    engine.aquery.assert_awaited_once()
+
+
+def test_missing_corpus_fails_before_embedding_initialization(tmp_path: Path) -> None:
+    with (
+        patch("src.rag_adapter.dc.Cache"),
+        patch.object(settings, "RAG_DATA_PATH", tmp_path / "missing.md"),
+        patch("llama_index.embeddings.huggingface.HuggingFaceEmbedding") as embedding,
+    ):
+        with pytest.raises(FileNotFoundError, match="RAG data not found"):
+            RAGAdapter()._initialize_sync()
+        embedding.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_concurrent_initialization_builds_once_and_honors_top_k() -> None:
+    with patch("src.rag_adapter.dc.Cache"), patch("src.rag_adapter.Ollama"):
+        adapter = RAGAdapter()
+        index = MagicMock()
+        with (
+            patch.object(adapter, "_initialize_sync", return_value=index) as build,
+            patch.object(settings, "RAG_TOP_K", 7),
+        ):
+            await asyncio.gather(
+                *(adapter._ensure_initialized_async() for _ in range(8))
+            )
+        build.assert_called_once()
+        assert index.as_query_engine.call_args.kwargs["similarity_top_k"] == 7
+
+
+@pytest.mark.asyncio
+async def test_partial_engine_initialization_can_retry() -> None:
+    with patch("src.rag_adapter.dc.Cache"), patch("src.rag_adapter.Ollama"):
+        adapter = RAGAdapter()
+        index = MagicMock()
+        engine = MagicMock()
+        index.as_query_engine.side_effect = [
+            RuntimeError("temporary setup error"),
+            engine,
+        ]
+        with patch.object(adapter, "_initialize_sync", return_value=index):
+            with pytest.raises(RuntimeError, match="temporary setup error"):
+                await adapter._ensure_initialized_async()
+            await adapter._ensure_initialized_async()
+        assert adapter.query_engine is engine

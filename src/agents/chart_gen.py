@@ -1,4 +1,4 @@
-from langchain_ollama import ChatOllama
+from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage, AIMessage
 from src.core.types import AgentState
 from src.core.prompts import Prompts
@@ -8,7 +8,7 @@ from src.utils.robustness import log_agent_action
 from langchain_core.messages import SystemMessage
 
 
-def create_quant_node(llm: ChatOllama) -> Callable[[AgentState], Dict[str, Any]]:
+def create_quant_node(llm: BaseChatModel) -> Callable[[AgentState], Dict[str, Any]]:
     """
     Creates the Quant node for data visualization.
 
