@@ -8,6 +8,18 @@ on:
   workflow_dispatch:  # Manual triggers
 
 jobs:
+  scoring-regressions:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: python -m unittest discover -s tests -p test_evaluate_metrics.py -v
+
   code-analysis:
     runs-on: ubuntu-latest
     steps:
@@ -18,7 +30,7 @@ jobs:
         python-version: '3.10'
     - name: Install analysis tools
       run: |
-        pip install black flake8 mypy isort radon
+        pip install black==25.1.0 flake8==7.1.2 mypy isort radon
     - name: Check formatting with black
       run: black --check --diff .
     - name: Lint with flake8
@@ -37,7 +49,7 @@ jobs:
     needs: code-analysis
     strategy:
       matrix:
-        python-version: [3.9, 3.10, 3.11]
+        python-version: ["3.10", "3.11"]
     
     steps:
     - uses: actions/checkout@v4
@@ -87,7 +99,7 @@ jobs:
         fi
     
     - name: Upload test results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: test-results-${{ matrix.python-version }}
         path: |

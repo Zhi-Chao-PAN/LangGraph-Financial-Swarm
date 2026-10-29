@@ -5,12 +5,14 @@ from langchain_core.tools import tool
 
 from src.rag_adapter import adapter
 
+
 def query_rag_engine(question: str) -> str:
     """
     Interface with the Structure-Aware RAG Engine via Adapter.
     """
     result = adapter.query(question)
     return result["model_answer"]
+
 
 @tool
 async def query_financial_rag(question: str) -> str:
