@@ -111,7 +111,10 @@ jobs:
   integration-tests:
     runs-on: ubuntu-latest
     needs: unit-tests
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    env:
+      CI: "true"
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
     
     steps:
     - uses: actions/checkout@v4
@@ -124,43 +127,8 @@ jobs:
         pip install torch --index-url https://download.pytorch.org/whl/cpu
         pip install -e .
         pip install pytest pytest-asyncio
-    - name: Run integration tests
-      run: |
-        echo "Running multi-agent integration tests..."
-        
-        # Create mock Ollama service if needed
-        python -c "
-        import asyncio
-        import subprocess
-        import time
-        import sys
-        
-        # Check if Ollama is running
-        try:
-            result = subprocess.run(['ollama', '--version'], capture_output=True, text=True)
-            print(f'Ollama found: {result.stdout.strip()}')
-        except FileNotFoundError:
-            print('Ollama not found, using mock mode')
-            # We'll run tests in mock mode
-        "
-        
-        # Run integration tests if they exist
-        if [ -f "tests/integration/test_swarm.py" ]; then
-          python -m pytest tests/integration/ -v --tb=short
-        else
-          echo "No integration tests found, running basic system check"
-          python -c "
-          # Basic system functionality check
-          print('Multi-agent system basic check...')
-          
-          # Check that main modules can be imported
-          try:
-              # Import your main modules here
-              print('System imports: OK')
-          except Exception as e:
-              print(f'Import error: {e}')
-          "
-        fi
+    - name: Run offline integration tests
+      run: python -m pytest tests/test_integration.py -v --tb=short
 
   agent-validation:
     runs-on: ubuntu-latest
