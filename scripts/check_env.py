@@ -7,7 +7,7 @@ from rich.console import Console
 console = Console()
 
 
-def check_environment():
+def check_environment() -> None:
     """Verify that all system dependencies are met."""
     console.rule("[bold green]System Environment Check[/]")
 

@@ -1,16 +1,17 @@
+import asyncio
 import os
 import time
 from typing import Dict, Any
+from pathlib import Path
+from llama_index.core.base.base_query_engine import BaseQueryEngine
 from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, Settings
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.llms.ollama import Ollama
 
-# Configure Global Settings as per user requirements
-Settings.embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-large-en-v1.5")
-Settings.llm = Ollama(model="deepseek-r1:8b", request_timeout=60.0)
 
-
-def load_index(filepath: str, name: str, device: str = "cpu") -> VectorStoreIndex:
+def load_index(
+    filepath: str | Path, name: str, device: str = "cpu"
+) -> VectorStoreIndex:
     """
     输入:
         filepath (str) - 解析后的 Markdown 文件路径
@@ -37,11 +38,11 @@ def load_index(filepath: str, name: str, device: str = "cpu") -> VectorStoreInde
 
 
 async def evaluate_single_question(
-    query_engine,
+    query_engine: BaseQueryEngine,
     row: Dict[str, Any],
     pipeline_name: str,
-    semaphore=None,
-    safe_mode=False,
+    semaphore: asyncio.Semaphore | None = None,
+    safe_mode: bool = False,
 ) -> Dict[str, Any]:
     """
     输入语义:
@@ -67,7 +68,6 @@ async def evaluate_single_question(
     }
 
 
-import asyncio
 import argparse
 import json
 from src.core.config import settings
@@ -81,8 +81,10 @@ logging.basicConfig(
 logger = logging.getLogger("Experiment")
 
 
-async def run_benchmark(output_file: str = "experiments/results.json"):
+async def run_benchmark(output_file: str = "experiments/results.json") -> None:
     logger.info("Initializing Experiment...")
+    Settings.embed_model = HuggingFaceEmbedding(model_name=settings.EMBEDDING_MODEL)
+    Settings.llm = Ollama(model=settings.LLM_MODEL, request_timeout=60.0)
 
     # 1. Setup RAG Engine (using Adapter logic or direct loading)
     # For comparison, we might want to compare "Standard RAG" vs "Structure-Aware"
@@ -162,7 +164,7 @@ async def run_benchmark(output_file: str = "experiments/results.json"):
         logger.error("Could not import metric evaluator.")
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", default="experiments/comparison_results.json")
     args = parser.parse_args()

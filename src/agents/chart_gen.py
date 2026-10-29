@@ -29,9 +29,11 @@ def create_quant_node(llm: ChatOllama) -> Callable[[AgentState], Dict[str, Any]]
         Returns:
             Dict[str, Any]: Updated state with Quant's response.
         """
-        messages = [HumanMessage(content=Prompts.QUANT_SYSTEM)] + state["messages"]
+        messages = [HumanMessage(content=Prompts.QUANT_SYSTEM)] + list(
+            state["messages"]
+        )
         response = llm.invoke(messages)
-        content = response.content
+        content = response.content if isinstance(response.content, str) else ""
 
         from src.utils.tool_parsing import ToolParser
 

@@ -2,8 +2,10 @@ import time
 import functools
 import logging
 import json
+import asyncio
+import inspect
 from logging.handlers import RotatingFileHandler
-from typing import Any, Callable, Dict
+from typing import Any, Awaitable, Callable, ParamSpec, TypeVar, cast
 from src.core.config import settings
 
 # Configure structured logger with rotation
@@ -20,15 +22,40 @@ logger.addHandler(handler)
 logger.addHandler(logging.StreamHandler())
 
 
-def retry_with_backoff(retries: int = 3, backoff_in_seconds: int = 1):
+P = ParamSpec("P")
+R = TypeVar("R")
+
+
+def retry_with_backoff(
+    retries: int = 3, backoff_in_seconds: float = 1
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     Decorator to retry a function with exponential backoff.
     Useful for local LLM inference consistency.
     """
 
-    def decorator(func: Callable):
+    if retries < 0 or backoff_in_seconds < 0:
+        raise ValueError("Retries and backoff must be non-negative")
+
+    def decorator(func: Callable[P, R]) -> Callable[P, R]:
+        if inspect.iscoroutinefunction(func):
+            async_func = cast(Callable[P, Awaitable[object]], func)
+
+            @functools.wraps(func)
+            async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> object:
+                for attempt in range(retries + 1):
+                    try:
+                        return await async_func(*args, **kwargs)
+                    except Exception:
+                        if attempt == retries:
+                            raise
+                        await asyncio.sleep(backoff_in_seconds * 2**attempt)
+                raise AssertionError("Unreachable retry state")
+
+            return cast(Callable[P, R], async_wrapper)
+
         @functools.wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             x = 0
             while True:
                 try:
@@ -51,7 +78,7 @@ def retry_with_backoff(retries: int = 3, backoff_in_seconds: int = 1):
     return decorator
 
 
-def log_agent_action(agent_name: str, action: str, content: Any):
+def log_agent_action(agent_name: str, action: str, content: Any) -> None:
     """
     Log significant agent actions for audit trails.
     """

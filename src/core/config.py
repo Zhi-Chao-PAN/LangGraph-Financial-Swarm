@@ -42,7 +42,7 @@ class Settings(BaseSettings):
         env_file = ".env"
         extra = "ignore"  # Allow extra keys in .env
 
-    def ensure_dirs(self):
+    def ensure_dirs(self) -> None:
         self.DATA_DIR.mkdir(parents=True, exist_ok=True)
         self.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
         # RAG_DATA_PATH directory is now managed by ingestion process, not auto-created empty.

@@ -3,26 +3,38 @@ import matplotlib
 matplotlib.use("Agg")  # Force non-interactive backend
 import pytest
 import os
+from pathlib import Path
 from langchain_ollama import ChatOllama
 from src.core.config import settings
 from src.tools.plot_tool import create_plot
 from main import main
 from unittest.mock import MagicMock, patch
+from langchain_core.prompt_values import PromptValue
+from langchain_core.messages import AIMessage
 
 
 # Test Configuration
-def test_config_loading():
+def test_config_loading() -> None:
     """Verify config loads correctly."""
     assert settings.LLM_MODEL is not None
     assert os.path.exists(settings.DATA_DIR)
 
 
 # Test Tools
-def test_plot_tool():
+@pytest.mark.parametrize(
+    "data",
+    [
+        '[{"Year": 2023, "Revenue": 100}, {"Year": 2024, "Revenue": 150}]',
+        "Year,Revenue\n2023,100\n2024,150\n",
+    ],
+)
+def test_plot_tool(tmp_path: Path, data: str) -> None:
     """Verify plot tool logic (without verifying visual output)."""
-    data = '[{"Year": 2023, "Revenue": 100}, {"Year": 2024, "Revenue": 150}]'
     # Mock log_agent_action to avoid file writes during test
-    with patch("src.tools.plot_tool.log_agent_action"):
+    with (
+        patch("src.tools.plot_tool.log_agent_action"),
+        patch.object(settings, "OUTPUT_DIR", tmp_path),
+    ):
         result = create_plot.invoke(
             {
                 "data_str": data,
@@ -33,13 +45,17 @@ def test_plot_tool():
             }
         )
         print(f"DEBUG TOOL OUTPUT: {result}")
-        assert "Chart generated successfully" in result, f"Tool failed with: {result}"
-        assert os.path.exists(os.path.join(settings.OUTPUT_DIR, "test_plot.png"))
+        assert result.startswith("Chart generated:"), f"Tool failed with: {result}"
+        charts = list(tmp_path.glob("test_plot_*.png"))
+        assert len(charts) == 1 and charts[0].read_bytes().startswith(b"\x89PNG")
+        csv_files = list(tmp_path.glob("test_plot_*.csv"))
+        assert len(csv_files) == 1
+        assert "2024,150" in csv_files[0].read_text()
 
 
 # Test LLM Connection (Skip if Ollama not running)
 @pytest.mark.skipif(os.getenv("CI") == "true", reason="Skipping local LLM test in CI")
-def test_llm_connection():
+def test_llm_connection() -> None:
     """Verify we can talk to Ollama."""
     try:
         llm = ChatOllama(model=settings.LLM_MODEL, base_url=settings.LLM_BASE_URL)
@@ -50,7 +66,7 @@ def test_llm_connection():
 
 
 # Test Invariant: Supervisor Output Validity
-def test_supervisor_validity_under_noise():
+def test_supervisor_validity_under_noise() -> None:
     """
     Research Grade Test: Verify that the Supervisor acts as a deterministic firewall.
     Even if the LLM emits garbage (stochastic element), the routing policy (deterministic element)
@@ -61,7 +77,7 @@ def test_supervisor_validity_under_noise():
     from langchain_core.messages import AIMessage
 
     # 1. Simulate a completely broken LLM response using a callable (LCEL compatible)
-    def broken_llm(input):
+    def broken_llm(input: PromptValue) -> AIMessage:
         return AIMessage(
             content="I am a stochastic parrot behaving badly with no structured output."
         )

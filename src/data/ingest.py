@@ -5,7 +5,7 @@ from pathlib import Path
 from src.core.config import settings
 
 
-def ingest_data(input_path: str, output_path: str):
+def ingest_data(input_path: str, output_path: str | Path) -> None:
     """
     Simple ingestion script to prepare data for RAG.
     Currently a placeholder that copies/moves files, but intended for

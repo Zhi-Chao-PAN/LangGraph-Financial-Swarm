@@ -18,7 +18,7 @@ from src.utils.validation import sanitize_input
 logging.basicConfig(level=logging.CRITICAL)
 
 
-async def main():
+async def main() -> None:
     """
     Main asynchronous entry point for the Financial Swarm.
     Initializes agents and the LangGraph workflow.
@@ -78,17 +78,17 @@ async def main():
     )
 
     # Clean tool routing logic
-    def route_tool_output(state: AgentState):
+    def route_tool_output(state: AgentState) -> str:
         """Standard routing: Callers handle their own tool outputs."""
         return state.get("sender", "Supervisor")
 
     workflow.add_conditional_edges("tools", route_tool_output)
 
     # Conditional edge for member agents
-    def should_continue(state: AgentState):
+    def should_continue(state: AgentState) -> str:
         messages = state["messages"]
         last_message = messages[-1]
-        if last_message.tool_calls:
+        if getattr(last_message, "tool_calls", None):
             return "tools"
         return "Supervisor"
 

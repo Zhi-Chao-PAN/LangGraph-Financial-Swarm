@@ -3,59 +3,49 @@ import functools
 import re
 import json
 import io
-from typing import Any, Callable
+from typing import Callable, ParamSpec, TypeVar
+
+P = ParamSpec("P")
+R = TypeVar("R")
 
 
-def validate_dataframe(func: Callable) -> Callable:
+def parse_dataframe(data_str: str) -> pd.DataFrame:
+    """Parse supported JSON rows or CSV without treating JSON as CSV headers."""
+    try:
+        if data_str.lstrip().startswith(("[", "{")):
+            data = json.loads(data_str)
+            if not isinstance(data, list) or not all(
+                isinstance(row, dict) for row in data
+            ):
+                raise ValueError("JSON data must be a list of dictionaries.")
+            frame = pd.DataFrame(data)
+        else:
+            frame = pd.read_csv(io.StringIO(data_str))
+        if frame.empty or len(frame.columns) < 2:
+            raise ValueError("Plot data must contain rows and at least two columns.")
+        return frame
+    except (ValueError, TypeError) as exc:
+        raise ValueError(f"Data validation failed: {exc}") from exc
+
+
+def validate_dataframe(func: Callable[P, R]) -> Callable[P, R]:
     """
     Decorator to validate that the input JSON string creates a valid DataFrame.
     Performs a 'dry run' parse to ensure data integrity before tool execution.
     """
 
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         data_str = kwargs.get("data_str")
         if not data_str:
             # Try positional arg
             if len(args) > 0:
                 data_str = args[0]
 
-        if not data_str:
-            raise ValueError("No data_str provided to Tool.")
+        if not isinstance(data_str, str) or not data_str:
+            raise ValueError("No string data_str provided to Tool.")
 
-        # 1. Basic Length Check
-        if len(data_str) < 10:
-            raise ValueError("Data string too short to be valid JSON/CSV.")
-
-        # 2. Schema/Format Validation (Dry Run)
-        # We assume the data is JSON list of dicts, as per prompt instructions
-        try:
-            # Use standard json first for speed, or robust logic if needed.
-            # Since this is a validation step for a tool that expects clean JSON from the code generator,
-            # we can use the robust parser if available, or just standard json.
-            # Let's try standard json to be strict, or pd.read_json
-
-            # Attempt to parse into a DataFrame to verify structure
-            # Handle user passing a string representation of a list
-            try:
-                data = json.loads(data_str)
-            except Exception:
-                # If json fails, maybe it's CSV? Unlikely for this specific tool intent but good for robustness
-                raise ValueError("Invalid JSON format.")
-
-            if not isinstance(data, list):
-                raise ValueError("Data must be a list of dictionaries.")
-
-            if len(data) == 0:
-                raise ValueError("Data list is empty.")
-
-            # Dry run dataframe creation
-            df = pd.DataFrame(data)
-            if df.empty:
-                raise ValueError("DataFrame is empty after parsing.")
-
-        except Exception as e:
-            raise ValueError(f"Data validation failed: {str(e)}")
+        parse_dataframe(data_str)
 
         return func(*args, **kwargs)
 

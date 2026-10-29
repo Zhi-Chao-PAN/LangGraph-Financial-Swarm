@@ -7,7 +7,7 @@ import os
 from langchain_core.tools import tool
 from src.utils.robustness import log_agent_action
 from src.core.config import settings
-from src.utils.validation import validate_dataframe
+from src.utils.validation import validate_dataframe, parse_dataframe
 
 # Set academic style
 sns.set_theme(style="whitegrid")
@@ -40,14 +40,7 @@ def create_plot(
         if len(data_str) > MAX_DATA_SIZE:
             return "Error: Data size exceeds security limit (50KB)."
 
-        # Robust parsing
-        try:
-            df = pd.read_csv(io.StringIO(data_str))
-        except:
-            import json
-
-            data = json.loads(data_str)
-            df = pd.DataFrame(data)
+        df = parse_dataframe(data_str)
 
         # 1. Save Raw Data (Audit Trail)
         output_dir = settings.OUTPUT_DIR

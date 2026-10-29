@@ -29,11 +29,11 @@ class Observability:
     Handles system observability: Rich UI, Metrics, and Tracing.
     """
 
-    _start_time = 0
+    _start_time = 0.0
     _run_id = str(uuid.uuid4())[:8]
 
     @staticmethod
-    def start_trace():
+    def start_trace() -> None:
         Observability._start_time = time.time()
         banner = """
 [bold cyan]
@@ -57,7 +57,7 @@ class Observability:
     @staticmethod
     def trace_agent(
         agent_name: str, content: str, metadata: Optional[Dict[str, Any]] = None
-    ):
+    ) -> None:
         """
         Log an agent's action with rich formatting.
         """
@@ -84,18 +84,18 @@ class Observability:
         console.print(panel)
 
     @staticmethod
-    def trace_tool(tool_name: str, args: str, result: str):
+    def trace_tool(tool_name: str, args: str, result: str) -> None:
         """Log tool execution."""
         console.print(f"  [dim]🛠️  Tool Call: {tool_name}({args})[/]")
         console.print(f"  [dim]   -> Result: {result[:100]}...[/]")
 
     @staticmethod
-    def final_report(total_steps: int):
+    def final_report(total_steps: int) -> None:
         elapsed = time.time() - Observability._start_time
         console.print(
             f"\n[bold green]Mission Complete[/] in {elapsed:.2f}s ({total_steps} steps)."
         )
 
     @staticmethod
-    def error(message: str):
+    def error(message: str) -> None:
         console.print(f"[danger]ERROR: {message}[/]")

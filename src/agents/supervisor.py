@@ -6,13 +6,16 @@ import re
 from src.core.types import AgentState
 from src.core.prompts import Prompts
 
-from typing import List, Sequence, Callable, Dict, Any
+from typing import List, Callable, Dict, Any, cast
+from langchain_core.messages import BaseMessage
+from langchain_core.prompt_values import PromptValue
+from langchain_core.runnables import Runnable
 from src.core.constants import ROLE_FINISH
 
 
 def create_supervisor_node(
-    llm: ChatOllama, members: List[str]
-) -> Callable[[AgentState], Dict[str, Any]]:
+    llm: ChatOllama | Callable[[PromptValue], BaseMessage], members: List[str]
+) -> Runnable[Dict[str, Any], Dict[str, str]]:
     """
     Creates the Supervisor node function (Regex Augmented for Robustness).
 
@@ -39,8 +42,8 @@ def create_supervisor_node(
     ).partial(options=str(options))
 
     # Regex parser with robust fallback
-    def parse_route(ai_message):
-        text = ai_message.content
+    def parse_route(ai_message: BaseMessage) -> Dict[str, str]:
+        text = ai_message.content if isinstance(ai_message.content, str) else ""
         # 0. Strip <think> blocks for reasoning models (DeepSeek-R1, etc.)
         text_to_parse = re.sub(
             r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE
@@ -75,4 +78,4 @@ def create_supervisor_node(
 
     supervisor_chain = prompt | llm | parse_route
 
-    return supervisor_chain
+    return cast(Runnable[Dict[str, Any], Dict[str, str]], supervisor_chain)
