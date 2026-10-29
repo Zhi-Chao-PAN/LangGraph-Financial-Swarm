@@ -24,4 +24,3 @@ We compared the Swarm architecture against a monolithic "Chat-with-PDF" baseline
 - **Fully local execution** on consumer hardware
 
 ---
-
